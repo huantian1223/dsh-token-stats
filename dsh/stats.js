@@ -46,6 +46,28 @@ function isoWeek(ts) {
 }
 
 /**
+ * Per-session breakdown for one calendar day (the heatmap drill-down).
+ *
+ * @param {Array<object>} rows - usage rows.
+ * @param {string} dateKey - local 'YYYY-MM-DD'.
+ * @returns {Array<{session:string, workspace:string, tokens:number, steps:number}>} sorted by tokens desc.
+ */
+export function computeDayBreakdown(rows, dateKey) {
+  const bySession = new Map()
+  for (const r of rows) {
+    if (dayKey(r.ts) !== dateKey) continue
+    let e = bySession.get(r.session)
+    if (!e) {
+      e = { session: r.session, workspace: r.workspace, tokens: 0, steps: 0 }
+      bySession.set(r.session, e)
+    }
+    e.tokens += r.input + r.output + r.cacheRead + r.cacheWrite
+    e.steps += 1
+  }
+  return [...bySession.values()].sort((a, b) => b.tokens - a.tokens)
+}
+
+/**
  * Light per-session summary for the live header badge.
  *
  * @param {Array<object>} rows - usage rows.

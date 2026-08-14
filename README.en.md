@@ -4,12 +4,12 @@ Token usage statistics plugin for DeepSeek Harness (DSH). It parses real provide
 
 ## Features
 
-- **Six stat cards**: cumulative tokens, today's tokens, peak tokens (highest single session), longest chat duration, current / longest streak days
-- **Activity heatmap**: GitHub-style 7-row calendar grid with daily / weekly / cumulative views; hover a cell to preview that day's usage
+- **Six stat cards**: cumulative tokens, today's tokens (with share-of-total), peak tokens (highest single session), longest chat duration, current / longest streak days
+- **Activity heatmap**: GitHub-style 7-row calendar grid with daily / weekly / cumulative views and a 12-month / 3-month / 30-day range switch (3 months by default); hover a cell to preview that day's usage, **click a day cell to drill into that day's per-session usage**, and export the current window as CSV
 - **Consumption breakdown**: input / output / cache read / cache write / reasoning, with full-precision numbers
 - **By model / workspace**: per-model and per-workspace token totals
 - **Live session badge** in the conversation header: current session token usage; click for a detail dialog with a shortcut to the full statistics
-- **DeepSeek account balance** in three places: a balance pill (¥) next to the badge; a **dedicated balance dialog** opened by clicking the pill (total / topped-up / granted balance, availability, refresh button, last-updated time); and a balance panel in the left column of the full stats page (with its own refresh button). Clicking refresh forces a live query (`?force=1`); a 15-minute poll is the baseline. The API key stays in the host process, never sent to the browser
+- **DeepSeek account balance** in three places: a balance pill (¥) next to the badge; a **dedicated balance dialog** opened by clicking the pill (total / topped-up / granted balance, availability, refresh button, last-updated time); and a balance panel on the full stats page (with its own refresh button). Clicking refresh forces a live query (`?force=1`) with a refreshing state; a 15-minute poll is the baseline. The API key stays in the host process, never sent to the browser
 - **Standalone stats page**: `http://127.0.0.1:3080/token-stats` (dark theme, 15-second auto-refresh)
 
 ## Data source
@@ -47,6 +47,7 @@ The plugin mounts through DSH's profile plugin mechanism (managed by `dsh plugin
 |---|---|
 | `GET /token-stats/api/stats` | Full stats snapshot (everything the cards / heatmap / breakdowns need) |
 | `GET /token-stats/api/balance` | DeepSeek account balance (15-minute cache; `?force=1` to bypass) |
+| `GET /token-stats/api/day?date=YYYY-MM-DD` | Per-session usage for one date (heatmap drill-down) |
 | `GET /token-stats/api/session/<sessionId>` | Single-session usage summary (used by the badge / dialog) |
 | `GET /token-stats` | Standalone stats page (HTML) |
 

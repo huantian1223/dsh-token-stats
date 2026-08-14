@@ -62,6 +62,11 @@ export function renderPage() {
   @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
   .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; }
   .panel-head h2 { margin: 0; }
+  .head-actions { display: inline-flex; align-items: center; gap: 8px; }
+  .day-detail { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .day-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .day-detail-head b { font-size: 13px; font-weight: 600; color: var(--text); }
+  .refresh-btn:disabled { opacity: .55; cursor: default; }
   .range-tabs { display: inline-flex; gap: 2px; background: var(--bg-cell); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
   .range { border: 0; background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; line-height: 18px; padding: 2px 10px; border-radius: 6px; cursor: pointer; }
   .range:hover { color: var(--text); }
@@ -100,10 +105,13 @@ export function renderPage() {
   <div class="panel">
     <div class="panel-head">
       <h2>Token 活动</h2>
-      <div class="range-tabs" id="rangeTabs">
-        <button class="range" data-range="12m">12个月</button>
-        <button class="range active" data-range="3m">3个月</button>
-        <button class="range" data-range="30d">30天</button>
+      <div class="head-actions">
+        <div class="range-tabs" id="rangeTabs">
+          <button class="range" data-range="12m">12个月</button>
+          <button class="range active" data-range="3m">3个月</button>
+          <button class="range" data-range="30d">30天</button>
+        </div>
+        <button class="refresh-btn" id="exportCsv" type="button">导出 CSV</button>
       </div>
     </div>
     <div class="tabs" id="tabs">
@@ -113,6 +121,10 @@ export function renderPage() {
     </div>
     <div class="hm" id="hm"></div>
     <div class="tip" id="tip"></div>
+    <div class="day-detail" id="dayDetail" hidden>
+      <div class="day-detail-head"><b id="dayDetailTitle"></b><button class="refresh-btn" id="dayDetailClose" type="button">关闭</button></div>
+      <div id="dayDetailBody"></div>
+    </div>
   </div>
 
   <div class="panel">
@@ -168,9 +180,10 @@ function localDayStr(ts) { const d = new Date(ts); return d.getFullYear() + '-' 
 function renderCards() {
   const c = STATE.cumulative
   const today = STATE.today
+  const todayPct = today && c.total > 0 ? Math.round((today.tokens / c.total) * 100) : null
   const cards = [
     { k: '累计 Token 数', v: fmt(c.total) },
-    { k: '今日 Token', v: today ? fmt(today.tokens) : '—', d: today ? '今天 · ' + today.steps + ' 次调用' : '—' },
+    { k: '今日 Token', v: today ? fmt(today.tokens) : '—', d: today ? '今天 · ' + today.steps + ' 次调用' + (todayPct !== null ? ' · 占累计 ' + todayPct + '%' : '') : '—' },
     { k: '峰值 Token 数', v: fmt(STATE.peak.tokens), d: '单会话最高' + (STATE.peak.ts ? ' · ' + fmtDate(localDayStr(STATE.peak.ts)) : '') },
     { k: '最长聊天时长', v: STATE.longestChat.ms > 0 ? fmtDur(STATE.longestChat.ms) : '—', d: STATE.longestChat.ms > 0 ? fmtDate(localDayStr(STATE.longestChat.startTs)) + ' 的单次会话' : '暂无数据' },
     { k: '当前连续天数', v: STATE.currentStreak + ' 天', d: '今天' + (STATE.currentStreak > 0 ? '仍在坚持' : '尚未使用') },
@@ -179,18 +192,12 @@ function renderCards() {
   $('#cards').innerHTML = cards.map((x) => '<div class="card"><div class="k">' + x.k + '</div><div class="v">' + x.v + '</div>' + (x.d ? '<div class="d">' + x.d + '</div>' : '') + '</div>').join('')
 }
 
-function renderHeatmap() {
-  const box = $('#hm')
-  const inner = document.createElement('div')
-  inner.className = 'hm-inner'
-  const h = STATE.heatmap
-  // Window the full 12-month series down to the selected range; cumulative is
-  // recomputed from the window start.
+function windowDaily(h, range) {
   let daily = h.daily
   let cumulative = h.cumulative
-  if (RANGE !== '12m') {
+  if (range !== '12m') {
     const endNum0 = dayNumOf(daily[daily.length - 1].date)
-    const span = RANGE === '30d' ? 30 : 92
+    const span = range === '30d' ? 30 : 92
     const cutoff = endNum0 - span
     daily = daily.filter((d) => dayNumOf(d.date) >= cutoff)
     let run = 0
@@ -199,6 +206,15 @@ function renderHeatmap() {
       return { date: d.date, tokens: run }
     })
   }
+  return { daily, cumulative }
+}
+
+function renderHeatmap() {
+  const box = $('#hm')
+  const inner = document.createElement('div')
+  inner.className = 'hm-inner'
+  const h = STATE.heatmap
+  const { daily, cumulative } = windowDaily(h, RANGE)
   // One shared 7-row calendar grid for every view (每日/每周/累计); only the
   // per-cell value and tooltip change, so switching tabs never jumps.
   const byDate = new Map(daily.map((d) => [d.date, d]))
@@ -253,7 +269,8 @@ function renderHeatmap() {
     grid += '<div class="hm-col">'
     col.forEach((n) => {
       const lv = levelFor(valueOf(n), max)
-      grid += '<div class="hm-cell l' + lv + '" data-tip="' + tipOf(n) + '"></div>'
+      const dateAttr = VIEW === 'daily' ? ' data-date="' + dayStr(n) + '"' : ''
+      grid += '<div class="hm-cell l' + lv + '" data-tip="' + tipOf(n) + '"' + dateAttr + '></div>'
     })
     grid += '</div>'
   })
@@ -349,6 +366,11 @@ setInterval(load, 15000)
 
 // DeepSeek account balance (server-side key, 15-minute cache).
 async function loadBalance(force) {
+  const btn = $('#balanceRefresh')
+  if (force && btn) {
+    btn.disabled = true
+    btn.textContent = '刷新中…'
+  }
   try {
     const r = await fetch('/token-stats/api/balance' + (force ? '?force=1' : ''), { cache: 'no-store' })
     if (!r.ok) return
@@ -364,11 +386,62 @@ async function loadBalance(force) {
       '</div>'
   } catch {
     $('#balance').innerHTML = ''
+  } finally {
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = '刷新'
+    }
   }
 }
 loadBalance()
 setInterval(() => loadBalance(), 15 * 60 * 1000)
 $('#balanceRefresh').addEventListener('click', () => loadBalance(true))
+
+// CSV export of the current heatmap window.
+$('#exportCsv').addEventListener('click', () => {
+  if (!STATE) return
+  const { daily } = windowDaily(STATE.heatmap, RANGE)
+  const lines = [['日期', 'Token', '调用次数']]
+  for (const d of daily) lines.push([d.date, d.tokens, d.steps])
+  const csv = '\ufeff' + lines.map((r) => r.join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = 'token-usage-' + RANGE + '.csv'
+  a.click()
+  URL.revokeObjectURL(a.href)
+})
+
+// Day drill-down: click a heatmap cell (daily view) to see that day's sessions.
+async function loadDay(date) {
+  const box = $('#dayDetail')
+  if (!box) return
+  box.hidden = false
+  $('#dayDetailTitle').textContent = fmtDate(date) + ' Token 明细'
+  $('#dayDetailBody').innerHTML = '<div class="skeleton">加载中…</div>'
+  try {
+    const r = await fetch('/token-stats/api/day?date=' + encodeURIComponent(date), { cache: 'no-store' })
+    if (!r.ok) throw new Error('HTTP ' + r.status)
+    const j = await r.json()
+    const rows = (j.rows || []).map((s) =>
+      '<tr><td>' + (s.session || '').replace(/^session-/, '').slice(0, 8) + '…</td>' +
+      '<td title="' + s.workspace + '">' + ((s.workspace || '').split(/[\\/]/).pop() || '—') + '</td>' +
+      '<td class="v">' + fmtFull(s.tokens) + '</td><td class="v">' + s.steps + '</td></tr>').join('')
+    $('#dayDetailBody').innerHTML =
+      '<table><tr><th>会话</th><th>工作区</th><th class="v">Token</th><th class="v">调用</th></tr>' + rows + '</table>'
+  } catch (e) {
+    $('#dayDetailBody').innerHTML = '<div class="err">无法读取当日明细：' + e.message + '</div>'
+  }
+}
+$('#dayDetailClose').addEventListener('click', () => {
+  $('#dayDetail').hidden = true
+})
+if (hmBox) {
+  hmBox.addEventListener('click', (e) => {
+    const cellEl = e.target && e.target.closest ? e.target.closest('.hm-cell[data-date]') : null
+    if (cellEl && cellEl.dataset.date) loadDay(cellEl.dataset.date)
+  })
+}
 </script>
 </body>
 </html>`

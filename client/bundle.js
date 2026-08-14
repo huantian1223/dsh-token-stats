@@ -27,6 +27,9 @@ window.__ModuleLoader__.load({
 .tks-panel h2{font-size:14px;margin:0 0 12px;font-weight:600}
 .tks-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}
 .tks-panel-head h2{margin:0}
+.tks-head-actions{display:inline-flex;align-items:center;gap:8px}
+.tks-refresh-btn:disabled{opacity:.55;cursor:default}
+.tks-refresh-btn:disabled:hover{background:transparent;color:var(--dsw-alias-label-tertiary,#adb2b8)}
 .tks-range-tabs{display:inline-flex;gap:2px;background:var(--dsw-alias-bg-layer-1,#232324);border:1px solid var(--dsw-alias-border-l2,#262e38);border-radius:8px;padding:2px}
 .tks-range{border:0;background:transparent;color:var(--dsw-alias-label-tertiary,#adb2b8);font:inherit;font-size:12px;line-height:18px;padding:2px 10px;border-radius:6px;cursor:pointer}
 .tks-range:hover{color:var(--dsw-alias-label-primary,#f9fafb)}
@@ -84,6 +87,7 @@ window.__ModuleLoader__.load({
 .tks-overlay-footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex:none;padding:12px 18px;border-top:1px solid var(--dsw-alias-border-l2,#262e38)}
 .tks-primary-btn{border:0;cursor:pointer;font:inherit;font-size:13px;font-weight:600;height:34px;border-radius:17px;padding:0 18px;background:var(--dsw-alias-button-primary-fill,#2563eb);color:var(--dsw-alias-label-primary-foreground,#fff)}
 .tks-primary-btn:hover{filter:brightness(1.08)}
+.tks-primary-btn:disabled{opacity:.55;cursor:default}
 @media (max-width:860px){.tks-cards{grid-template-columns:repeat(2,1fr)}.tks-grid2{grid-template-columns:1fr}}
 `
     const CSS_ID = 'dsh-token-stats/token-stats.css'
@@ -137,14 +141,15 @@ window.__ModuleLoader__.load({
       if (v === max) return 5
       return Math.max(1, Math.min(5, Math.ceil((Math.log10(v) / Math.log10(max)) * 5)))
     }
-    const cell = (lv, tip) => '<div class="tks-hm-cell l' + lv + '" data-tip="' + tip + '"></div>'
+    const cell = (lv, tip, date) =>
+      '<div class="tks-hm-cell l' + lv + '" data-tip="' + tip + '"' + (date ? ' data-date="' + date + '"' : '') + '></div>'
 
-    function heatmapHtml(stats, view, range) {
-      const h = stats.heatmap
-      // Window the full 12-month series down to the selected range (client
-      // side, no host change): cumulative is recomputed from the window start.
-      let daily = h.daily
-      let cumulative = h.cumulative
+    /** Window the full 12-month heatmap series to the selected range; the
+     * cumulative series is recomputed from the window start. Shared by the
+     * heatmap renderer and the CSV export. */
+    function windowDaily(heatmap, range) {
+      let daily = heatmap.daily
+      let cumulative = heatmap.cumulative
       if (range && range !== '12m') {
         const endNum = dayNumOf(daily[daily.length - 1].date)
         const span = range === '30d' ? 30 : 92
@@ -156,6 +161,12 @@ window.__ModuleLoader__.load({
           return { date: d.date, tokens: run }
         })
       }
+      return { daily, cumulative }
+    }
+
+    function heatmapHtml(stats, view, range) {
+      const h = stats.heatmap
+      const { daily, cumulative } = windowDaily(h, range)
       // One shared 7-row calendar grid for every view (每日/每周/累计); only
       // the per-cell value and tooltip change, so switching tabs never jumps.
       const byDate = new Map(daily.map((d) => [d.date, d]))
@@ -211,7 +222,7 @@ window.__ModuleLoader__.load({
         grid += '<div class="tks-hm-col">'
         col.forEach((n) => {
           const v = valueOf(n)
-          grid += cell(levelFor(v, max), tipOf(n))
+          grid += cell(levelFor(v, max), tipOf(n), view === 'daily' ? dayStr(n) : undefined)
         })
         grid += '</div>'
       })
@@ -236,6 +247,10 @@ window.__ModuleLoader__.load({
       const [err, setErr] = React.useState(null)
       const [updatedAt, setUpdatedAt] = React.useState(null)
       const [balance, setBalance] = React.useState(null)
+      const [refreshing, setRefreshing] = React.useState(false)
+      const [dayOpen, setDayOpen] = React.useState(false)
+      const [dayDetail, setDayDetail] = React.useState(null)
+      const [dayError, setDayError] = React.useState(null)
       const hmRef = React.useRef(null)
       const tipRef = React.useRef(null)
       React.useEffect(() => {
@@ -292,9 +307,15 @@ window.__ModuleLoader__.load({
         }
         box.addEventListener('mousemove', move)
         box.addEventListener('mouseleave', hide)
+        const click = (e) => {
+          const cellEl = e.target && e.target.closest ? e.target.closest('.tks-hm-cell[data-date]') : null
+          if (cellEl && cellEl.dataset.date) void openDay(cellEl.dataset.date)
+        }
+        box.addEventListener('click', click)
         return () => {
           box.removeEventListener('mousemove', move)
           box.removeEventListener('mouseleave', hide)
+          box.removeEventListener('click', click)
         }
         // Dep on the loaded flag, NOT []: on first mount stats is still null
         // and the heatmap container does not exist yet (early return), so the
@@ -326,6 +347,7 @@ window.__ModuleLoader__.load({
       }, [])
       // Manual refresh: bypasses the host-side cache (?force=1).
       const refreshBalance = async () => {
+        setRefreshing(true)
         try {
           const r = await fetch('/token-stats/api/balance?force=1', { cache: 'no-store' })
           if (!r.ok) return
@@ -333,7 +355,37 @@ window.__ModuleLoader__.load({
           setBalance(j)
         } catch {
           // keep the last known value
+        } finally {
+          setRefreshing(false)
         }
+      }
+      // Heatmap drill-down: one day's per-session usage.
+      const openDay = async (date) => {
+        setDayOpen(true)
+        setDayDetail(null)
+        setDayError(null)
+        try {
+          const r = await fetch('/token-stats/api/day?date=' + encodeURIComponent(date), { cache: 'no-store' })
+          if (!r.ok) throw new Error('HTTP ' + r.status)
+          const j = await r.json()
+          setDayDetail(j)
+        } catch (e) {
+          setDayError(String(e && e.message ? e.message : e))
+        }
+      }
+      // CSV export of the current heatmap window.
+      const exportCsv = () => {
+        if (!stats) return
+        const { daily } = windowDaily(stats.heatmap, range)
+        const lines = [['日期', 'Token', '调用次数']]
+        for (const d of daily) lines.push([d.date, d.tokens, d.steps])
+        const csv = '\ufeff' + lines.map((row) => row.join(',')).join('\n')
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = 'token-usage-' + range + '.csv'
+        a.click()
+        URL.revokeObjectURL(a.href)
       }
 
       const h = React.createElement
@@ -341,9 +393,10 @@ window.__ModuleLoader__.load({
       if (!stats) return h('div', { className: 'tks-page' }, h('div', { className: 'tks-skeleton' }, '正在读取…'))
 
       const c = stats.cumulative
+      const todayPct = stats.today && c.total > 0 ? Math.round((stats.today.tokens / c.total) * 100) : null
       const cards = [
         { k: '累计 Token 数', v: fmt(c.total) },
-        { k: '今日 Token', v: stats.today ? fmt(stats.today.tokens) : '—', d: stats.today ? '今天 · ' + stats.today.steps + ' 次调用' : '重启后显示' },
+        { k: '今日 Token', v: stats.today ? fmt(stats.today.tokens) : '—', d: stats.today ? '今天 · ' + stats.today.steps + ' 次调用' + (todayPct !== null ? ' · 占累计 ' + todayPct + '%' : '') : '重启后显示' },
         { k: '峰值 Token 数', v: fmt(stats.peak.tokens), d: stats.peak.ts ? '单会话最高 · ' + fmtDate(localDayStr(stats.peak.ts)) : '暂无' },
         { k: '最长聊天时长', v: stats.longestChat.ms > 0 ? fmtDur(stats.longestChat.ms) : '—', d: stats.longestChat.ms > 0 ? '单次连续会话' : '暂无数据' },
         { k: '当前连续天数', v: stats.currentStreak + ' 天', d: stats.currentStreak > 0 ? '今天仍在坚持' : '今天尚未使用' },
@@ -391,14 +444,17 @@ window.__ModuleLoader__.load({
         h('div', { className: 'tks-panel' },
           h('div', { className: 'tks-panel-head' },
             h('h2', null, 'Token 活动'),
-            h('div', { className: 'tks-range-tabs' },
-              ['12m', '3m', '30d'].map((r) =>
-                h('button', {
-                  key: r,
-                  className: 'tks-range' + (range === r ? ' tks-active' : ''),
-                  onClick: () => setRange(r),
-                }, { '12m': '12个月', '3m': '3个月', '30d': '30天' }[r]),
+            h('div', { className: 'tks-head-actions' },
+              h('div', { className: 'tks-range-tabs' },
+                ['12m', '3m', '30d'].map((r) =>
+                  h('button', {
+                    key: r,
+                    className: 'tks-range' + (range === r ? ' tks-active' : ''),
+                    onClick: () => setRange(r),
+                  }, { '12m': '12个月', '3m': '3个月', '30d': '30天' }[r]),
+                ),
               ),
+              h('button', { type: 'button', className: 'tks-refresh-btn', onClick: exportCsv }, '导出 CSV'),
             ),
           ),
           h('div', { className: 'tks-tabs' },
@@ -420,7 +476,7 @@ window.__ModuleLoader__.load({
           ? h('div', { className: 'tks-panel' },
             h('div', { className: 'tks-panel-head' },
               h('h2', null, 'DeepSeek 余额'),
-              h('button', { type: 'button', className: 'tks-refresh-btn', onClick: () => void refreshBalance() }, '刷新'),
+              h('button', { type: 'button', className: 'tks-refresh-btn', disabled: refreshing, onClick: () => void refreshBalance() }, refreshing ? '刷新中…' : '刷新'),
             ),
             h('div', { className: 'tks-balance-strip' },
               h('div', { className: 'tks-balance-hero' },
@@ -458,6 +514,41 @@ window.__ModuleLoader__.load({
               ),
             ),
           ),
+        ),
+        h(TksOverlay, {
+          open: dayOpen,
+          onClose: () => setDayOpen(false),
+          title: dayDetail ? dayDetail.date + ' Token 明细' : '当日 Token 明细',
+          width: 460,
+        },
+          dayError
+            ? h('div', { className: 'tks-err' }, '无法读取当日明细：' + dayError)
+            : dayDetail
+              ? h('div', null,
+                h('table', { className: 'tks-table' },
+                  h('tbody', null,
+                    h('tr', null,
+                      h('th', null, '会话'),
+                      h('th', null, '工作区'),
+                      h('th', { className: 'v' }, 'Token'),
+                      h('th', { className: 'v' }, '调用'),
+                    ),
+                    (dayDetail.rows || []).map((s) =>
+                      h('tr', { key: s.session },
+                        h('td', null, String(s.session).replace(/^session-/, '').slice(0, 8) + '…'),
+                        h('td', { title: s.workspace }, (s.workspace || '').split(/[\\/]/).pop() || '—'),
+                        h('td', { className: 'v' }, fmtFull(s.tokens)),
+                        h('td', { className: 'v' }, s.steps),
+                      ),
+                    ),
+                    (dayDetail.rows || []).length === 0
+                      ? h('tr', null, h('td', { colSpan: 4, className: 'tks-skeleton' }, '当天无使用记录'))
+                      : null,
+                  ),
+                ),
+                h('div', { className: 'tks-balance-note' }, '点击其他日期格子可切换查看'),
+              )
+              : h('div', { className: 'tks-skeleton' }, '加载中…'),
         ),
       )
     }
@@ -528,6 +619,7 @@ window.__ModuleLoader__.load({
       const [info, setInfo] = React.useState(null)
       const [balance, setBalance] = React.useState(null)
       const [balanceUpdatedAt, setBalanceUpdatedAt] = React.useState(null)
+      const [refreshing, setRefreshing] = React.useState(false)
       const [open, setOpen] = React.useState(false)
       const [balanceOpen, setBalanceOpen] = React.useState(false)
       const [fullOpen, setFullOpen] = React.useState(false)
@@ -579,6 +671,7 @@ window.__ModuleLoader__.load({
       // Clicking the balance pill refreshes it (host ?force=1) and opens the
       // dedicated balance dialog.
       const refreshBalance = async () => {
+        setRefreshing(true)
         try {
           const r = await fetch('/token-stats/api/balance?force=1', { cache: 'no-store' })
           if (!r.ok) return
@@ -586,6 +679,8 @@ window.__ModuleLoader__.load({
           applyBalance(j)
         } catch {
           // keep the last known value
+        } finally {
+          setRefreshing(false)
         }
       }
       const h = React.createElement
@@ -672,7 +767,7 @@ window.__ModuleLoader__.load({
           onClose: () => setBalanceOpen(false),
           title: 'DeepSeek 余额',
           width: 380,
-          footer: h('button', { type: 'button', className: 'tks-primary-btn', onClick: () => void refreshBalance() }, '刷新余额'),
+          footer: h('button', { type: 'button', className: 'tks-primary-btn', disabled: refreshing, onClick: () => void refreshBalance() }, refreshing ? '刷新中…' : '刷新余额'),
         },
           balance && balance.ok
             ? h('div', null,

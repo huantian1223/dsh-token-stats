@@ -19,7 +19,7 @@ import { mkdirSync } from 'node:fs'
 import { dshHomePath } from './home.js'
 import { scanChangedArtifacts } from './scan.js'
 import { usageRowFromEvent } from './scan.js'
-import { computeStats, computeSessionStats } from './stats.js'
+import { computeStats, computeSessionStats, computeDayBreakdown } from './stats.js'
 import { loadStore, persistNewRows, loadScanState, saveScanState, rewriteStore, loadStoreVersion, saveStoreVersion, STORE_VERSION } from './store.js'
 import { renderPage } from './page.js'
 import { createBalanceService } from './balance.js'
@@ -147,6 +147,21 @@ export function apply(ctx, config = {}) {
     }
     routeDisposers.push(webServer.register({ kind: 'exact', path: '/token-stats/api/stats', handler: statsHandler }))
     routeDisposers.push(webServer.register({ kind: 'exact', path: '/token-stats/api/balance', handler: balanceHandler }))
+    routeDisposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/token-stats/api/day',
+        handler: async (req, res) => {
+          await scanPromise
+          const date = new URL(req.url ?? '/', 'http://x').searchParams.get('date') ?? ''
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            send(res, 400, JSON.stringify({ error: 'bad date, expected YYYY-MM-DD' }), 'application/json; charset=utf-8')
+            return
+          }
+          send(res, 200, JSON.stringify({ date, rows: computeDayBreakdown([...rows.values()], date) }), 'application/json; charset=utf-8')
+        },
+      }),
+    )
     routeDisposers.push(
       webServer.register({
         kind: 'prefix',

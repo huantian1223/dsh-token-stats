@@ -47,12 +47,16 @@ function isoWeek(ts) {
 
 /**
  * Per-session breakdown for one calendar day (the heatmap drill-down).
+ * Sessions that share the same DSH-generated title are merged into one row
+ * (tokens/steps summed, `sessions` counts how many), so repeated titles like
+ * "使用 read_image 工具读取..." collapse instead of listing every session.
  *
  * @param {Array<object>} rows - usage rows.
  * @param {string} dateKey - local 'YYYY-MM-DD'.
- * @returns {Array<{session:string, workspace:string, tokens:number, steps:number}>} sorted by tokens desc.
+ * @param {(sessionId: string) => string} [titleOf] - resolves a session title.
+ * @returns {Array<{title:string, session:string, workspace:string, tokens:number, steps:number, sessions:number}>} sorted by tokens desc.
  */
-export function computeDayBreakdown(rows, dateKey) {
+export function computeDayBreakdown(rows, dateKey, titleOf = () => '') {
   const bySession = new Map()
   for (const r of rows) {
     if (dayKey(r.ts) !== dateKey) continue
@@ -64,7 +68,21 @@ export function computeDayBreakdown(rows, dateKey) {
     e.tokens += r.input + r.output + r.cacheRead + r.cacheWrite
     e.steps += 1
   }
-  return [...bySession.values()].sort((a, b) => b.tokens - a.tokens)
+  const merged = new Map()
+  for (const s of bySession.values()) {
+    const title = titleOf(s.session)
+    const key = title || s.session
+    let m = merged.get(key)
+    if (!m) {
+      m = { title, session: s.session, workspace: s.workspace, tokens: 0, steps: 0, sessions: 0 }
+      merged.set(key, m)
+    }
+    m.tokens += s.tokens
+    m.steps += s.steps
+    m.sessions += 1
+    if (!m.workspace && s.workspace) m.workspace = s.workspace
+  }
+  return [...merged.values()].sort((a, b) => b.tokens - a.tokens)
 }
 
 /**

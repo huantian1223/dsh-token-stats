@@ -169,7 +169,7 @@ export function apply(ctx, config = {}) {
             send(res, 400, JSON.stringify({ error: 'bad date, expected YYYY-MM-DD' }), 'application/json; charset=utf-8')
             return
           }
-          send(res, 200, JSON.stringify({ date, rows: computeDayBreakdown([...rows.values()], date).map((s) => ({ ...s, title: titles.get(s.session) || '' })) }), 'application/json; charset=utf-8')
+          send(res, 200, JSON.stringify({ date, rows: computeDayBreakdown([...rows.values()], date, (sid) => titles.get(sid) || '') }), 'application/json; charset=utf-8')
         },
       }),
     )

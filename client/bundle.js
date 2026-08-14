@@ -37,6 +37,8 @@ window.__ModuleLoader__.load({
 .tks-balance-strip{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 28px}
 .tks-balance-strip .tks-balance-row{display:inline-flex;justify-content:flex-start;gap:8px;line-height:28px}
 .tks-balance-strip .tks-balance-note{flex-basis:100%;margin-top:2px}
+.tks-day-pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px}
+.tks-day-pager-info{font-size:12px;color:var(--dsw-alias-label-tertiary,#adb2b8);font-variant-numeric:tabular-nums}
 .tks-refresh-btn{border:1px solid var(--dsw-alias-border-l2,#262e38);background:transparent;color:var(--dsw-alias-label-tertiary,#adb2b8);font:inherit;font-size:12px;line-height:20px;padding:2px 10px;border-radius:999px;cursor:pointer}
 .tks-refresh-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#f9fafb)}
 .tks-tabs{display:flex;gap:28px;border:0;background:transparent;padding:0;margin-bottom:14px}
@@ -251,6 +253,7 @@ window.__ModuleLoader__.load({
       const [dayOpen, setDayOpen] = React.useState(false)
       const [dayDetail, setDayDetail] = React.useState(null)
       const [dayError, setDayError] = React.useState(null)
+      const [dayPage, setDayPage] = React.useState(0)
       const hmRef = React.useRef(null)
       const tipRef = React.useRef(null)
       React.useEffect(() => {
@@ -364,6 +367,7 @@ window.__ModuleLoader__.load({
         setDayOpen(true)
         setDayDetail(null)
         setDayError(null)
+        setDayPage(0)
         try {
           const r = await fetch('/token-stats/api/day?date=' + encodeURIComponent(date), { cache: 'no-store' })
           if (!r.ok) throw new Error('HTTP ' + r.status)
@@ -530,32 +534,44 @@ window.__ModuleLoader__.load({
           dayError
             ? h('div', { className: 'tks-err' }, '无法读取当日明细：' + dayError)
             : dayDetail
-              ? h('div', null,
-                h('table', { className: 'tks-table' },
-                  h('tbody', null,
-                    h('tr', null,
-                      h('th', null, '会话'),
-                      h('th', null, '工作区'),
-                      h('th', { className: 'v' }, 'Token'),
-                      h('th', { className: 'v' }, '调用'),
+              ? (() => {
+                const all = dayDetail.rows || []
+                const perPage = 10
+                const pages = Math.max(1, Math.ceil(all.length / perPage))
+                const cur = Math.min(dayPage, pages - 1)
+                const pageRows = all.slice(cur * perPage, cur * perPage + perPage)
+                return h('div', null,
+                  h('table', { className: 'tks-table' },
+                    h('tbody', null,
+                      h('tr', null,
+                        h('th', null, '会话'),
+                        h('th', null, '工作区'),
+                        h('th', { className: 'v' }, 'Token'),
+                        h('th', { className: 'v' }, '调用'),
+                      ),
+                      pageRows.map((s) => {
+                        const label = s.title || String(s.session).replace(/^session-/, '').slice(0, 8) + '…'
+                        const shown = s.title && s.title.length > 18 ? s.title.slice(0, 18) + '…' : label
+                        return h('tr', { key: s.session || s.title },
+                          h('td', { title: s.title || s.session }, shown),
+                          h('td', { title: s.workspace }, (s.workspace || '').split(/[\\/]/).pop() || '—'),
+                          h('td', { className: 'v' }, fmtFull(s.tokens)),
+                          h('td', { className: 'v' }, s.steps + (s.sessions > 1 ? ' ×' + s.sessions : '')),
+                        )
+                      }),
+                      all.length === 0
+                        ? h('tr', null, h('td', { colSpan: 4, className: 'tks-skeleton' }, '当天无使用记录'))
+                        : null,
                     ),
-                    (dayDetail.rows || []).map((s) => {
-                      const label = s.title || String(s.session).replace(/^session-/, '').slice(0, 8) + '…'
-                      const shown = s.title && s.title.length > 18 ? s.title.slice(0, 18) + '…' : label
-                      return h('tr', { key: s.session },
-                        h('td', { title: s.title || s.session }, shown),
-                        h('td', { title: s.workspace }, (s.workspace || '').split(/[\\/]/).pop() || '—'),
-                        h('td', { className: 'v' }, fmtFull(s.tokens)),
-                        h('td', { className: 'v' }, s.steps),
-                      )
-                    }),
-                    (dayDetail.rows || []).length === 0
-                      ? h('tr', null, h('td', { colSpan: 4, className: 'tks-skeleton' }, '当天无使用记录'))
-                      : null,
                   ),
-                ),
-                h('div', { className: 'tks-balance-note' }, '点击其他日期格子可切换查看'),
-              )
+                  h('div', { className: 'tks-day-pager' },
+                    h('button', { type: 'button', className: 'tks-refresh-btn', disabled: cur <= 0, onClick: () => setDayPage(cur - 1) }, '上一页'),
+                    h('span', { className: 'tks-day-pager-info' }, '第 ' + (cur + 1) + ' / ' + pages + ' 页 · 共 ' + all.length + ' 条'),
+                    h('button', { type: 'button', className: 'tks-refresh-btn', disabled: cur >= pages - 1, onClick: () => setDayPage(cur + 1) }, '下一页'),
+                  ),
+                  h('div', { className: 'tks-balance-note' }, '点击其他日期格子可切换查看'),
+                )
+              })()
               : h('div', { className: 'tks-skeleton' }, '加载中…'),
         ),
       )

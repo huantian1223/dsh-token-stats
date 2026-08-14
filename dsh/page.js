@@ -67,6 +67,8 @@ export function renderPage() {
   .day-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
   .day-detail-head b { font-size: 13px; font-weight: 600; color: var(--text); }
   .refresh-btn:disabled { opacity: .55; cursor: default; }
+  .day-pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+  .day-pager-info { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .range-tabs { display: inline-flex; gap: 2px; background: var(--bg-cell); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
   .range { border: 0; background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; line-height: 18px; padding: 2px 10px; border-radius: 6px; cursor: pointer; }
   .range:hover { color: var(--text); }
@@ -413,10 +415,38 @@ $('#exportCsv').addEventListener('click', () => {
 })
 
 // Day drill-down: click a heatmap cell (daily view) to see that day's sessions.
+let DAY_PAGE = 0
+let DAY_ALL = []
+
+function renderDayRows() {
+  const perPage = 10
+  const pages = Math.max(1, Math.ceil(DAY_ALL.length / perPage))
+  const cur = Math.min(DAY_PAGE, pages - 1)
+  const pageRows = DAY_ALL.slice(cur * perPage, cur * perPage + perPage)
+  const rowsHtml = pageRows.map((s) => {
+    const label = s.title || (s.session || '').replace(/^session-/, '').slice(0, 8) + '…'
+    const shown = s.title && s.title.length > 18 ? s.title.slice(0, 18) + '…' : label
+    return '<tr><td title="' + (s.title || s.session) + '">' + shown + '</td>' +
+      '<td title="' + s.workspace + '">' + ((s.workspace || '').split(/[\\/]/).pop() || '—') + '</td>' +
+      '<td class="v">' + fmtFull(s.tokens) + '</td><td class="v">' + s.steps + (s.sessions > 1 ? ' ×' + s.sessions : '') + '</td></tr>'
+  }).join('')
+  $('#dayDetailBody').innerHTML =
+    '<table><tr><th>会话</th><th>工作区</th><th class="v">Token</th><th class="v">调用</th></tr>' +
+    (DAY_ALL.length === 0 ? '<tr><td colspan="4" class="skeleton">当天无使用记录</td></tr>' : rowsHtml) +
+    '</table>' +
+    '<div class="day-pager"><button class="refresh-btn" id="dayPrev" type="button"' + (cur <= 0 ? ' disabled' : '') + '>上一页</button>' +
+    '<span class="day-pager-info">第 ' + (cur + 1) + ' / ' + pages + ' 页 · 共 ' + DAY_ALL.length + ' 条</span>' +
+    '<button class="refresh-btn" id="dayNext" type="button"' + (cur >= pages - 1 ? ' disabled' : '') + '>下一页</button></div>'
+  $('#dayPrev').addEventListener('click', () => { DAY_PAGE = cur - 1; renderDayRows() })
+  $('#dayNext').addEventListener('click', () => { DAY_PAGE = cur + 1; renderDayRows() })
+}
+
 async function loadDay(date) {
   const box = $('#dayDetail')
   if (!box) return
   box.hidden = false
+  DAY_PAGE = 0
+  DAY_ALL = []
   $('#dayDetailTitle').textContent = fmtDate(date) + ' Token 明细'
   $('#dayDetailBody').innerHTML = '<div class="skeleton">加载中…</div>'
   try {
@@ -429,15 +459,8 @@ async function loadDay(date) {
       throw new Error('后端接口未加载——请重启 DSH 后重试')
     }
     const j = JSON.parse(text)
-    const rows = (j.rows || []).map((s) => {
-      const label = s.title || (s.session || '').replace(/^session-/, '').slice(0, 8) + '…'
-      const shown = s.title && s.title.length > 18 ? s.title.slice(0, 18) + '…' : label
-      return '<tr><td title="' + (s.title || s.session) + '">' + shown + '</td>' +
-        '<td title="' + s.workspace + '">' + ((s.workspace || '').split(/[\\/]/).pop() || '—') + '</td>' +
-        '<td class="v">' + fmtFull(s.tokens) + '</td><td class="v">' + s.steps + '</td></tr>'
-    }).join('')
-    $('#dayDetailBody').innerHTML =
-      '<table><tr><th>会话</th><th>工作区</th><th class="v">Token</th><th class="v">调用</th></tr>' + rows + '</table>'
+    DAY_ALL = j.rows || []
+    renderDayRows()
   } catch (e) {
     $('#dayDetailBody').innerHTML = '<div class="err">无法读取当日明细：' + e.message + '</div>'
   }

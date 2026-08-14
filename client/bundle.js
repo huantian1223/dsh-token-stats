@@ -25,6 +25,10 @@ window.__ModuleLoader__.load({
 .tks-card .d{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary,#8b95a3);margin-top:6px}
 .tks-panel{background:var(--dsw-alias-bg-layer-3,#171c22);border:1px solid var(--dsw-alias-border-l2,#262e38);border-radius:12px;padding:16px;margin-bottom:14px}
 .tks-panel h2{font-size:14px;margin:0 0 12px;font-weight:600}
+.tks-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}
+.tks-panel-head h2{margin:0}
+.tks-refresh-btn{border:1px solid var(--dsw-alias-border-l2,#262e38);background:transparent;color:var(--dsw-alias-label-tertiary,#adb2b8);font:inherit;font-size:12px;line-height:20px;padding:2px 10px;border-radius:999px;cursor:pointer}
+.tks-refresh-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#f9fafb)}
 .tks-tabs{display:flex;gap:28px;border:0;background:transparent;padding:0;margin-bottom:14px}
 .tks-tab{border:0;background:transparent;color:var(--dsw-alias-label-tertiary,#8b95a3);font:inherit;font-size:13px;font-weight:500;line-height:16px;padding:0 0 8px;cursor:pointer;position:relative}
 .tks-tab:hover{color:var(--dsw-alias-label-primary,#e6e9ee)}
@@ -278,14 +282,15 @@ window.__ModuleLoader__.load({
 
       // DeepSeek account balance: slow-moving, polled on a long interval.
       // Must stay above the early returns (hooks order stability).
+      const balanceAliveRef = React.useRef(true)
       React.useEffect(() => {
-        let alive = true
+        balanceAliveRef.current = true
         const load = async () => {
           try {
             const r = await fetch('/token-stats/api/balance', { cache: 'no-store' })
             if (!r.ok) return
             const j = await r.json()
-            if (alive) setBalance(j)
+            if (balanceAliveRef.current) setBalance(j)
           } catch {
             // next poll retries
           }
@@ -293,10 +298,21 @@ window.__ModuleLoader__.load({
         load()
         const t = setInterval(load, 15 * 60 * 1000)
         return () => {
-          alive = false
+          balanceAliveRef.current = false
           clearInterval(t)
         }
       }, [])
+      // Manual refresh: bypasses the host-side cache (?force=1).
+      const refreshBalance = async () => {
+        try {
+          const r = await fetch('/token-stats/api/balance?force=1', { cache: 'no-store' })
+          if (!r.ok) return
+          const j = await r.json()
+          setBalance(j)
+        } catch {
+          // keep the last known value
+        }
+      }
 
       const h = React.createElement
       if (err && !stats) return h('div', { className: 'tks-page' }, h('div', { className: 'tks-err' }, '无法读取统计：' + err))
@@ -375,7 +391,10 @@ window.__ModuleLoader__.load({
             ),
             balance && balance.ok
               ? h('div', { className: 'tks-panel' },
-                h('h2', null, 'DeepSeek 余额'),
+                h('div', { className: 'tks-panel-head' },
+                  h('h2', null, 'DeepSeek 余额'),
+                  h('button', { type: 'button', className: 'tks-refresh-btn', onClick: () => void refreshBalance() }, '刷新'),
+                ),
                 h('div', { className: 'tks-balance-hero' },
                   h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
                   h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
@@ -498,14 +517,15 @@ window.__ModuleLoader__.load({
         }
       }, [sessionId])
       // DeepSeek account balance: slow-moving, polled on a long interval.
+      const badgeAliveRef = React.useRef(true)
       React.useEffect(() => {
-        let alive = true
+        badgeAliveRef.current = true
         const load = async () => {
           try {
             const r = await fetch('/token-stats/api/balance', { cache: 'no-store' })
             if (!r.ok) return
             const j = await r.json()
-            if (alive) setBalance(j)
+            if (badgeAliveRef.current) setBalance(j)
           } catch {
             // next poll retries
           }
@@ -513,10 +533,22 @@ window.__ModuleLoader__.load({
         load()
         const t = setInterval(load, 15 * 60 * 1000)
         return () => {
-          alive = false
+          badgeAliveRef.current = false
           clearInterval(t)
         }
       }, [])
+      // Clicking the balance pill refreshes it (host ?force=1) and opens the
+      // dialog, which then shows the freshly fetched figure.
+      const refreshBalance = async () => {
+        try {
+          const r = await fetch('/token-stats/api/balance?force=1', { cache: 'no-store' })
+          if (!r.ok) return
+          const j = await r.json()
+          setBalance(j)
+        } catch {
+          // keep the last known value
+        }
+      }
       const h = React.createElement
       const total = info?.tokens?.total ?? 0
       if (!info || total <= 0) return null
@@ -568,8 +600,11 @@ window.__ModuleLoader__.load({
             ? h('button', {
               type: 'button',
               className: 'tks-balance',
-              title: balanceTip,
-              onClick: () => setOpen(true),
+              title: balanceTip + '\n点击刷新余额并查看详情',
+              onClick: () => {
+                void refreshBalance()
+                setOpen(true)
+              },
             },
               h('span', { className: 'tks-balance-dot' }),
               h('span', null, fmtMoney(balance.total, balance.currency)),

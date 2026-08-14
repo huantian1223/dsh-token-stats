@@ -66,6 +66,9 @@ export function renderPage() {
   .bal-status { font-size: 12px; color: #22c55e; }
   .bal-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; line-height: 24px; color: var(--text-dim); }
   .bal-note { font-size: 11px; line-height: 18px; color: var(--text-dim); margin-top: 6px; }
+  .head-with-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .refresh-btn { border: 1px solid var(--border); background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; line-height: 20px; padding: 2px 10px; border-radius: 999px; cursor: pointer; }
+  .refresh-btn:hover { background: rgba(255,255,255,.08); color: var(--text); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   th { color: var(--text-dim); font-weight: 500; font-size: 12px; }
@@ -101,7 +104,7 @@ export function renderPage() {
   <div class="grid2">
     <div class="col2">
       <div class="panel"><h2>消耗构成</h2><div id="breakdown"><div class="skeleton">加载中…</div></div></div>
-      <div class="panel"><h2>DeepSeek 余额</h2><div id="balance"><div class="skeleton">加载中…</div></div></div>
+      <div class="panel"><h2 class="head-with-btn">DeepSeek 余额<button class="refresh-btn" id="balanceRefresh" type="button">刷新</button></h2><div id="balance"><div class="skeleton">加载中…</div></div></div>
     </div>
     <div class="panel"><h2>按模型 / 工作区</h2><div id="models"><div class="skeleton">加载中…</div></div></div>
   </div>
@@ -305,9 +308,9 @@ load()
 setInterval(load, 15000)
 
 // DeepSeek account balance (server-side key, 15-minute cache).
-async function loadBalance() {
+async function loadBalance(force) {
   try {
-    const r = await fetch('/token-stats/api/balance', { cache: 'no-store' })
+    const r = await fetch('/token-stats/api/balance' + (force ? '?force=1' : ''), { cache: 'no-store' })
     if (!r.ok) return
     const j = await r.json()
     if (!j.ok) return
@@ -322,7 +325,8 @@ async function loadBalance() {
   }
 }
 loadBalance()
-setInterval(loadBalance, 15 * 60 * 1000)
+setInterval(() => loadBalance(), 15 * 60 * 1000)
+$('#balanceRefresh').addEventListener('click', () => loadBalance(true))
 </script>
 </body>
 </html>`

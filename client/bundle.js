@@ -41,6 +41,7 @@ window.__ModuleLoader__.load({
 .tks-tip{position:fixed;z-index:1300;pointer-events:none;opacity:0;transition:opacity .08s ease;background:var(--dsw-specific-menu,#2c2c2e);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06));color:var(--dsw-alias-label-primary,#f9fafb);font-size:12px;line-height:18px;padding:5px 9px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.45);white-space:nowrap;font-variant-numeric:tabular-nums}
 .tks-hm-cell.l1{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4cc2ff) 14%,transparent)}.tks-hm-cell.l2{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4cc2ff) 28%,transparent)}.tks-hm-cell.l3{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4cc2ff) 44%,transparent)}.tks-hm-cell.l4{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4cc2ff) 66%,transparent)}.tks-hm-cell.l5{background:var(--dsw-alias-state-business-primary,#4cc2ff)}
 .tks-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tks-col{display:flex;flex-direction:column;gap:14px;min-width:0}
 .tks-table{width:100%;border-collapse:collapse;font-size:13px}
 .tks-table th,.tks-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l2,#262e38);font-variant-numeric:tabular-nums}
 .tks-table th{color:var(--dsw-alias-label-tertiary,#8b95a3);font-weight:500;font-size:12px}
@@ -60,7 +61,7 @@ window.__ModuleLoader__.load({
 .tks-balance-row b{color:var(--dsw-alias-label-primary,#f9fafb);font-weight:600;font-variant-numeric:tabular-nums}
 .tks-balance-note{font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary,#adb2b8);margin-top:6px}
 .tks-balance-hero{display:flex;align-items:baseline;gap:10px;margin:2px 0 10px}
-.tks-balance-hero-amt{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px;color:var(--dsw-alias-label-primary,#f9fafb)}
+.tks-balance-hero-amt{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.4px;color:var(--dsw-alias-label-primary,#f9fafb)}
 .tks-balance-hero-status{font-size:12px;color:var(--dsw-alias-state-success-primary,#22c55e)}
 .tks-overlay{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
 .tks-overlay-panel{background:var(--dsw-alias-bg-layer-2,#151a21);border:1px solid var(--dsw-alias-border-l1,#2c3540);border-radius:12px;box-shadow:0 18px 56px rgba(0,0,0,.5);width:100%;max-width:980px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden;margin:auto 0}
@@ -367,9 +368,31 @@ window.__ModuleLoader__.load({
           err ? h('div', { className: 'tks-err', style: { marginTop: 12 } }, err) : null,
         ),
         h('div', { className: 'tks-grid2' },
-          h('div', { className: 'tks-panel' },
-            h('h2', null, '消耗构成'),
-            h('table', { className: 'tks-table' }, h('tbody', null, breakdownRows)),
+          h('div', { className: 'tks-col' },
+            h('div', { className: 'tks-panel' },
+              h('h2', null, '消耗构成'),
+              h('table', { className: 'tks-table' }, h('tbody', null, breakdownRows)),
+            ),
+            balance && balance.ok
+              ? h('div', { className: 'tks-panel' },
+                h('h2', null, 'DeepSeek 余额'),
+                h('div', { className: 'tks-balance-hero' },
+                  h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
+                  h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
+                ),
+                h('div', { className: 'tks-balance-row' },
+                  h('span', null, '充值余额'),
+                  h('span', null, fmtMoney(balance.toppedUp, balance.currency)),
+                ),
+                h('div', { className: 'tks-balance-row' },
+                  h('span', null, '赠送余额'),
+                  h('span', null, fmtMoney(balance.granted, balance.currency)),
+                ),
+                h('div', { className: 'tks-balance-note' },
+                  '数据来自 DeepSeek 开放平台 /user/balance，15 分钟缓存',
+                ),
+              )
+              : null,
           ),
           h('div', { className: 'tks-panel' },
             h('h2', null, '按模型 / 工作区'),
@@ -384,26 +407,6 @@ window.__ModuleLoader__.load({
             ),
           ),
         ),
-        balance && balance.ok
-          ? h('div', { className: 'tks-panel' },
-            h('h2', null, 'DeepSeek 余额'),
-            h('div', { className: 'tks-balance-hero' },
-              h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
-              h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
-            ),
-            h('div', { className: 'tks-balance-row' },
-              h('span', null, '充值余额'),
-              h('span', null, fmtMoney(balance.toppedUp, balance.currency)),
-            ),
-            h('div', { className: 'tks-balance-row' },
-              h('span', null, '赠送余额'),
-              h('span', null, fmtMoney(balance.granted, balance.currency)),
-            ),
-            h('div', { className: 'tks-balance-note' },
-              '数据来自 DeepSeek 开放平台 /user/balance，15 分钟缓存',
-            ),
-          )
-          : null,
       )
     }
 

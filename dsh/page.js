@@ -60,8 +60,9 @@ export function renderPage() {
   .hm-cell.l5 { background: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .col2 { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
   .bal-hero { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 10px; }
-  .bal-hero b { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.5px; color: var(--text); }
+  .bal-hero b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.4px; color: var(--text); }
   .bal-status { font-size: 12px; color: #22c55e; }
   .bal-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; line-height: 24px; color: var(--text-dim); }
   .bal-note { font-size: 11px; line-height: 18px; color: var(--text-dim); margin-top: 6px; }
@@ -98,10 +99,12 @@ export function renderPage() {
   </div>
 
   <div class="grid2">
-    <div class="panel"><h2>消耗构成</h2><div id="breakdown"><div class="skeleton">加载中…</div></div></div>
+    <div class="col2">
+      <div class="panel"><h2>消耗构成</h2><div id="breakdown"><div class="skeleton">加载中…</div></div></div>
+      <div class="panel"><h2>DeepSeek 余额</h2><div id="balance"><div class="skeleton">加载中…</div></div></div>
+    </div>
     <div class="panel"><h2>按模型 / 工作区</h2><div id="models"><div class="skeleton">加载中…</div></div></div>
   </div>
-  <div class="panel"><h2>DeepSeek 余额</h2><div id="balance"><div class="skeleton">加载中…</div></div></div>
 </div>
 
 <script>

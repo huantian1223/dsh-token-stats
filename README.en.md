@@ -4,13 +4,62 @@ Token usage statistics plugin for DeepSeek Harness (DSH). It parses real provide
 
 ## Features
 
-- **Six stat cards**: cumulative tokens, today's tokens (with share-of-total), peak tokens (highest single session), longest chat duration, current / longest streak days; a fixed 3×2 symmetric grid (2 columns on narrow screens) so titles and figures never truncate
-- **Activity heatmap**: GitHub-style 7-row calendar grid with daily / weekly / cumulative views and a 12-month / 3-month / 30-day range switch (3 months by default); hover a cell to preview that day's usage, **click a day cell to drill into that day's per-session usage (session titles shown, repeated titles auto-merged, paginated 10 rows per page)**, and export the current window as CSV
-- **Consumption breakdown**: input / output / cache read / cache write / reasoning, with full-precision numbers
-- **By model / workspace**: per-model and per-workspace token totals
-- **Live session badge** in the conversation header: current session token usage; click for a detail dialog (showing the session title, so you can tell which session it is) with a shortcut to the full statistics
-- **DeepSeek account balance** in three places: a balance pill (¥) next to the badge; a **dedicated balance dialog** opened by clicking the pill (total / topped-up / granted balance, availability, refresh button, last-updated time); and a balance panel on the full stats page (with its own refresh button). Clicking refresh forces a live query (`?force=1`) with a refreshing state; a 15-minute poll is the baseline. The API key stays in the host process, never sent to the browser
-- **Standalone stats page**: `http://127.0.0.1:3080/token-stats` (dark theme, 15-second auto-refresh)
+### Stat cards (6 cards, 3×2 grid)
+
+The page opens with six key figures in a symmetric 3-column × 2-row grid (2 columns on narrow screens):
+
+| Card | Meaning |
+|---|---|
+| Cumulative tokens | Full total of input + output + cache read + cache write |
+| Today's tokens | Usage so far today, with the call count and its **share of the cumulative total** |
+| Peak tokens | Highest single-session consumption, with the date it happened |
+| Longest chat | Longest continuous chat session (sessions are split after 30 minutes of inactivity) |
+| Current streak | Consecutive active days ending today (or yesterday) |
+| Longest streak | Best consecutive-active-days run on record |
+
+An "active day" is any day with at least one token-consuming call.
+
+### Activity heatmap
+
+A GitHub-style 7-row calendar grid (Mon–Sun) over a rolling 12-month window, with two freely combinable dimensions:
+
+- **Three views**:
+  - **Daily**: each cell is that day's usage
+  - **Weekly**: each cell is its week's total (the whole 7-cell column lights up, so an active week reads at a glance)
+  - **Cumulative**: each cell is the running total up to that day (a left-to-right gradient ramp)
+- **Time range**: 12 months / 3 months / 30 days, 3 months by default (so sparse data does not leave the calendar mostly empty)
+- **Hover preview**: a bubble shows "8月13日 使用了 6391.7万个 Token（58 次调用）"; empty days show "无使用"
+- **Click to drill down**: in the daily view, clicking a day cell opens that day's detail dialog — every session's tokens and calls for the day, **labeled with the session title** (so you can tell which session it is), repeated titles **auto-merged** with a ×N count, **paginated 10 rows per page**; with the dialog open you can click other dates to switch directly
+- **CSV export**: one-click export of the current range as per-day rows (date / tokens / calls), with a UTF-8 BOM so Excel opens it without garbled text
+
+### Consumption breakdown
+
+Input / output / cache read / cache write / reasoning with **full-precision numbers** (thousand separators, no 万/亿 abbreviation) — exact figures when you need them. (Cache read is DeepSeek's prefix-cache hits; it usually dominates the total but bills far below input.)
+
+### By model / workspace
+
+Per-model and per-workspace consumption rankings with full-precision numbers, so you can see at a glance which model and which project directory consume the most.
+
+### Live session badge
+
+Two pills sit in the conversation header, always visible:
+
+- **本会话 X**: the current session's token usage, polled every 10 seconds; click for the session detail dialog (total / input / output / cache / reasoning, a per-model breakdown, and the **session title**), with a one-click shortcut to the full statistics
+- **¥ balance**: the DeepSeek account balance, polled every 15 minutes; clicking **force-refreshes the balance** and opens the dedicated balance dialog
+
+### DeepSeek account balance
+
+The balance appears in three places, each with its own purpose:
+
+1. **Header balance pill**: next to the session badge, visible at all times
+2. **Dedicated balance dialog**: opened by clicking the pill — a large amount with availability status, topped-up / granted breakdown, a **refresh** button, and the data source / last-updated time
+3. **Balance panel on the full stats page**: a compact full-width strip below the heatmap, with its own refresh button
+
+Refresh behavior: clicking refresh forces a live query to the DeepSeek open platform (`/user/balance`) via `?force=1`, with a "刷新中…" state on the button; a 15-minute poll is the baseline; on failure the last cached value is kept (no flicker). **The API key is resolved through the DSH credentials service and stays in the host process — it is never sent to the browser.**
+
+### Standalone stats page
+
+`http://127.0.0.1:3080/token-stats`: the same dark-themed full statistics page as the GUI, directly accessible without opening the GUI, auto-refreshing every 15 seconds, with heatmap / balance / breakdowns / export / drill-down all working.
 
 ## Data source
 

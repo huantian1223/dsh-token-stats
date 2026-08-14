@@ -32,13 +32,13 @@ export function renderPage() {
   .sub { color: var(--text-dim); font-size: 13px; margin-top: 6px; }
   .live { display: inline-flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
   .live .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
-  .cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 26px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 26px; }
   .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 16px 14px; min-width: 0; }
   .card .k { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card .v { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.4px; line-height: 1.1; }
+  .card .v { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.4px; line-height: 1.2; white-space: nowrap; }
   .card .d { font-size: 11px; line-height: 16px; color: var(--text-dim); margin-top: 6px; }
   .card .d b { color: var(--text); font-weight: 600; }
-  @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 860px) { .cards { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
   .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
   .panel h2 { font-size: 14px; margin: 0 0 14px; font-weight: 600; }
   .tabs { display: flex; gap: 28px; border: 0; background: transparent; padding: 0; margin-bottom: 16px; }

@@ -60,7 +60,6 @@ window.__ModuleLoader__.load({
 .tks-balance{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:32px;color:var(--dsw-alias-label-primary,#e6e9ee);font:var(--dsw-font-xs-13,13px);font-variant-numeric:tabular-nums;background:0 0;border:1px solid var(--dsw-alias-border-l2,#262e38);border-radius:18px;padding:0 12px;cursor:pointer;white-space:nowrap}
 .tks-balance:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .tks-balance-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-success-primary,#22c55e);flex:none}
-.tks-balance-box{margin-top:14px;padding-top:12px;border-top:1px solid var(--dsw-alias-border-l2,#262e38)}
 .tks-balance-row{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;line-height:24px;color:var(--dsw-alias-label-secondary,#cfd3d6)}
 .tks-balance-row b{color:var(--dsw-alias-label-primary,#f9fafb);font-weight:600;font-variant-numeric:tabular-nums}
 .tks-balance-note{font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary,#adb2b8);margin-top:6px}
@@ -494,7 +493,9 @@ window.__ModuleLoader__.load({
       const sessionId = props?.sessionId
       const [info, setInfo] = React.useState(null)
       const [balance, setBalance] = React.useState(null)
+      const [balanceUpdatedAt, setBalanceUpdatedAt] = React.useState(null)
       const [open, setOpen] = React.useState(false)
+      const [balanceOpen, setBalanceOpen] = React.useState(false)
       const [fullOpen, setFullOpen] = React.useState(false)
       React.useEffect(() => {
         if (!sessionId) return undefined
@@ -518,6 +519,10 @@ window.__ModuleLoader__.load({
       }, [sessionId])
       // DeepSeek account balance: slow-moving, polled on a long interval.
       const badgeAliveRef = React.useRef(true)
+      const applyBalance = (j) => {
+        setBalance(j)
+        setBalanceUpdatedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }))
+      }
       React.useEffect(() => {
         badgeAliveRef.current = true
         const load = async () => {
@@ -525,7 +530,7 @@ window.__ModuleLoader__.load({
             const r = await fetch('/token-stats/api/balance', { cache: 'no-store' })
             if (!r.ok) return
             const j = await r.json()
-            if (badgeAliveRef.current) setBalance(j)
+            if (badgeAliveRef.current) applyBalance(j)
           } catch {
             // next poll retries
           }
@@ -538,13 +543,13 @@ window.__ModuleLoader__.load({
         }
       }, [])
       // Clicking the balance pill refreshes it (host ?force=1) and opens the
-      // dialog, which then shows the freshly fetched figure.
+      // dedicated balance dialog.
       const refreshBalance = async () => {
         try {
           const r = await fetch('/token-stats/api/balance?force=1', { cache: 'no-store' })
           if (!r.ok) return
           const j = await r.json()
-          setBalance(j)
+          applyBalance(j)
         } catch {
           // keep the last known value
         }
@@ -603,7 +608,7 @@ window.__ModuleLoader__.load({
               title: balanceTip + '\n点击刷新余额并查看详情',
               onClick: () => {
                 void refreshBalance()
-                setOpen(true)
+                setBalanceOpen(true)
               },
             },
               h('span', { className: 'tks-balance-dot' }),
@@ -627,25 +632,37 @@ window.__ModuleLoader__.load({
               modelRows,
             ),
           ),
+        ),
+        h(TksOverlay, {
+          open: balanceOpen,
+          onClose: () => setBalanceOpen(false),
+          title: 'DeepSeek 余额',
+          width: 380,
+          footer: h('button', { type: 'button', className: 'tks-primary-btn', onClick: () => void refreshBalance() }, '刷新余额'),
+        },
           balance && balance.ok
-            ? h('div', { className: 'tks-balance-box' },
-              h('div', { className: 'tks-balance-row' },
-                h('span', null, 'DeepSeek 余额'),
-                h('b', null, fmtMoney(balance.total, balance.currency)),
+            ? h('div', null,
+              h('div', { className: 'tks-balance-hero' },
+                h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
+                h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
               ),
               h('div', { className: 'tks-balance-row' },
-                h('span', null, '其中充值'),
+                h('span', null, '充值余额'),
                 h('span', null, fmtMoney(balance.toppedUp, balance.currency)),
               ),
               h('div', { className: 'tks-balance-row' },
-                h('span', null, '其中赠送'),
+                h('span', null, '赠送余额'),
                 h('span', null, fmtMoney(balance.granted, balance.currency)),
               ),
               h('div', { className: 'tks-balance-note' },
                 balance.isAvailable ? '可用，可正常调用' : '当前不可用（余额不足或账户受限）',
               ),
+              h('div', { className: 'tks-balance-note' },
+                '数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存' +
+                (balanceUpdatedAt ? ' · 更新于 ' + balanceUpdatedAt : ''),
+              ),
             )
-            : null,
+            : h('div', { className: 'tks-skeleton' }, '余额加载中…'),
         ),
         h(TksOverlay, {
           open: fullOpen,

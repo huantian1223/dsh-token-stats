@@ -45,12 +45,13 @@ export function walkSessionArtifacts(root) {
  *
  * @param {string} text - concatenated frame plaintext (JSONL).
  * @param {string} fallbackId - session id to use when the header is absent.
- * @returns {{ sessionId: string, workspace: string, rows: Map<string, object> }}
+ * @returns {{ sessionId: string, workspace: string, title: string, rows: Map<string, object> }}
  */
 export function parseSessionArtifact(text, fallbackId) {
   const rows = new Map()
   let sessionId = fallbackId
   let workspace = ''
+  let title = ''
   let header = null // last request/header {provider, model}
 
   for (const line of text.split('\n')) {
@@ -66,6 +67,13 @@ export function parseSessionArtifact(text, fallbackId) {
     if (type === 'session') {
       sessionId = ev.id ?? sessionId
       workspace = typeof ev.cwd === 'string' ? ev.cwd : workspace
+      continue
+    }
+    if (type === 'session/title') {
+      // Later events overwrite earlier ones (fallback -> provider title).
+      if (typeof ev.data?.title === 'string' && ev.data.title.trim() !== '') {
+        title = ev.data.title.trim()
+      }
       continue
     }
     if (type === 'request/header') {
@@ -106,7 +114,7 @@ export function parseSessionArtifact(text, fallbackId) {
       model: header?.model ?? '',
     })
   }
-  return { sessionId, workspace, rows }
+  return { sessionId, workspace, title, rows }
 }
 
 /**
@@ -114,11 +122,12 @@ export function parseSessionArtifact(text, fallbackId) {
  *
  * @param {string} sessionsRoot - dsh sessions directory.
  * @param {Record<string, number>} stateFiles - path -> last-scanned mtimeMs.
- * @returns {{ rows: object[], files: Record<string, number> }}
+ * @returns {{ rows: object[], titles: Map<string, string>, files: Record<string, number> }}
  */
 export function scanChangedArtifacts(sessionsRoot, stateFiles = {}) {
   const files = walkSessionArtifacts(sessionsRoot)
   const rows = []
+  const titles = new Map()
   for (const file of files) {
     if (stateFiles[file.path] === file.mtimeMs) continue
     let raw
@@ -136,11 +145,12 @@ export function scanChangedArtifacts(sessionsRoot, stateFiles = {}) {
       continue
     }
     const parsed = parseSessionArtifact(text, file.path)
+    if (parsed.title) titles.set(parsed.sessionId, parsed.title)
     for (const row of parsed.rows.values()) rows.push(row)
   }
   const next = { ...stateFiles }
   for (const file of files) next[file.path] = file.mtimeMs
-  return { rows, files: next }
+  return { rows, titles, files: next }
 }
 
 /** Derive a display name from a workspace slug fallback (rare path). */

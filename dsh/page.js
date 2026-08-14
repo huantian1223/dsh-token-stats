@@ -429,10 +429,13 @@ async function loadDay(date) {
       throw new Error('后端接口未加载——请重启 DSH 后重试')
     }
     const j = JSON.parse(text)
-    const rows = (j.rows || []).map((s) =>
-      '<tr><td>' + (s.session || '').replace(/^session-/, '').slice(0, 8) + '…</td>' +
-      '<td title="' + s.workspace + '">' + ((s.workspace || '').split(/[\\/]/).pop() || '—') + '</td>' +
-      '<td class="v">' + fmtFull(s.tokens) + '</td><td class="v">' + s.steps + '</td></tr>').join('')
+    const rows = (j.rows || []).map((s) => {
+      const label = s.title || (s.session || '').replace(/^session-/, '').slice(0, 8) + '…'
+      const shown = s.title && s.title.length > 18 ? s.title.slice(0, 18) + '…' : label
+      return '<tr><td title="' + (s.title || s.session) + '">' + shown + '</td>' +
+        '<td title="' + s.workspace + '">' + ((s.workspace || '').split(/[\\/]/).pop() || '—') + '</td>' +
+        '<td class="v">' + fmtFull(s.tokens) + '</td><td class="v">' + s.steps + '</td></tr>'
+    }).join('')
     $('#dayDetailBody').innerHTML =
       '<table><tr><th>会话</th><th>工作区</th><th class="v">Token</th><th class="v">调用</th></tr>' + rows + '</table>'
   } catch (e) {

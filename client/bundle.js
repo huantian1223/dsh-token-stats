@@ -539,14 +539,16 @@ window.__ModuleLoader__.load({
                       h('th', { className: 'v' }, 'Token'),
                       h('th', { className: 'v' }, '调用'),
                     ),
-                    (dayDetail.rows || []).map((s) =>
-                      h('tr', { key: s.session },
-                        h('td', null, String(s.session).replace(/^session-/, '').slice(0, 8) + '…'),
+                    (dayDetail.rows || []).map((s) => {
+                      const label = s.title || String(s.session).replace(/^session-/, '').slice(0, 8) + '…'
+                      const shown = s.title && s.title.length > 18 ? s.title.slice(0, 18) + '…' : label
+                      return h('tr', { key: s.session },
+                        h('td', { title: s.title || s.session }, shown),
                         h('td', { title: s.workspace }, (s.workspace || '').split(/[\\/]/).pop() || '—'),
                         h('td', { className: 'v' }, fmtFull(s.tokens)),
                         h('td', { className: 'v' }, s.steps),
-                      ),
-                    ),
+                      )
+                    }),
                     (dayDetail.rows || []).length === 0
                       ? h('tr', null, h('td', { colSpan: 4, className: 'tks-skeleton' }, '当天无使用记录'))
                       : null,
@@ -755,7 +757,7 @@ window.__ModuleLoader__.load({
           open,
           onClose: () => setOpen(false),
           title: '本会话 Token',
-          description: '会话 ' + shortId + '… · ' + info.steps + ' 次调用 · ' + info.turns + ' 轮',
+          description: (info.title || '会话 ' + shortId + '…') + ' · ' + info.steps + ' 次调用 · ' + info.turns + ' 轮',
           width: 440,
           footer: h('button', { type: 'button', className: 'tks-primary-btn', onClick: openFull }, '打开完整统计'),
         },

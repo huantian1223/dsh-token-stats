@@ -9,6 +9,7 @@ import { join } from 'node:path'
 const USAGE_FILE = 'usage.jsonl'
 const SCAN_STATE_FILE = 'scan-state.json'
 const VERSION_FILE = 'store-version.json'
+const TITLES_FILE = 'titles.json'
 
 /** Bump when the row schema or dedupe semantics change and the store should
  * be rebuilt from the session logs (e.g. the model-attribution fix: rows
@@ -16,7 +17,34 @@ const VERSION_FILE = 'store-version.json'
 export const STORE_VERSION = 2
 
 export function storePaths(dataDir) {
-  return { usage: join(dataDir, USAGE_FILE), scanState: join(dataDir, SCAN_STATE_FILE), version: join(dataDir, VERSION_FILE) }
+  return { usage: join(dataDir, USAGE_FILE), scanState: join(dataDir, SCAN_STATE_FILE), version: join(dataDir, VERSION_FILE), titles: join(dataDir, TITLES_FILE) }
+}
+
+/** Load the sessionId -> title map (session/title events from the logs). */
+export function loadTitles(dataDir) {
+  const { titles: titlesPath } = storePaths(dataDir)
+  const map = new Map()
+  if (!existsSync(titlesPath)) return map
+  try {
+    const parsed = JSON.parse(readFileSync(titlesPath, 'utf8'))
+    if (parsed && typeof parsed === 'object') {
+      for (const [id, title] of Object.entries(parsed)) {
+        if (typeof title === 'string' && title !== '') map.set(id, title)
+      }
+    }
+  } catch {
+    // ignore malformed titles; next scan rewrites it
+  }
+  return map
+}
+
+export function saveTitles(dataDir, titles) {
+  const { titles: titlesPath } = storePaths(dataDir)
+  const obj = {}
+  for (const [id, title] of titles) obj[id] = title
+  const tmp = `${titlesPath}.tmp`
+  writeFileSync(tmp, JSON.stringify(obj))
+  renameSync(tmp, titlesPath)
 }
 
 /**

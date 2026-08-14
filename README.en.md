@@ -5,10 +5,10 @@ Token usage statistics plugin for DeepSeek Harness (DSH). It parses real provide
 ## Features
 
 - **Six stat cards**: cumulative tokens, today's tokens (with share-of-total), peak tokens (highest single session), longest chat duration, current / longest streak days
-- **Activity heatmap**: GitHub-style 7-row calendar grid with daily / weekly / cumulative views and a 12-month / 3-month / 30-day range switch (3 months by default); hover a cell to preview that day's usage, **click a day cell to drill into that day's per-session usage**, and export the current window as CSV
+- **Activity heatmap**: GitHub-style 7-row calendar grid with daily / weekly / cumulative views and a 12-month / 3-month / 30-day range switch (3 months by default); hover a cell to preview that day's usage, **click a day cell to drill into that day's per-session usage (session titles shown)**, and export the current window as CSV
 - **Consumption breakdown**: input / output / cache read / cache write / reasoning, with full-precision numbers
 - **By model / workspace**: per-model and per-workspace token totals
-- **Live session badge** in the conversation header: current session token usage; click for a detail dialog with a shortcut to the full statistics
+- **Live session badge** in the conversation header: current session token usage; click for a detail dialog (showing the session title, so you can tell which session it is) with a shortcut to the full statistics
 - **DeepSeek account balance** in three places: a balance pill (¥) next to the badge; a **dedicated balance dialog** opened by clicking the pill (total / topped-up / granted balance, availability, refresh button, last-updated time); and a balance panel on the full stats page (with its own refresh button). Clicking refresh forces a live query (`?force=1`) with a refreshing state; a 15-minute poll is the baseline. The API key stays in the host process, never sent to the browser
 - **Standalone stats page**: `http://127.0.0.1:3080/token-stats` (dark theme, 15-second auto-refresh)
 

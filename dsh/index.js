@@ -20,7 +20,7 @@ import { dshHomePath } from './home.js'
 import { scanChangedArtifacts } from './scan.js'
 import { usageRowFromEvent } from './scan.js'
 import { computeStats, computeSessionStats, computeDayBreakdown } from './stats.js'
-import { loadStore, persistNewRows, loadScanState, saveScanState, rewriteStore, loadStoreVersion, saveStoreVersion, STORE_VERSION } from './store.js'
+import { loadStore, persistNewRows, loadScanState, saveScanState, rewriteStore, loadStoreVersion, saveStoreVersion, STORE_VERSION, loadTitles, saveTitles } from './store.js'
 import { renderPage } from './page.js'
 import { createBalanceService } from './balance.js'
 
@@ -43,6 +43,7 @@ export function apply(ctx, config = {}) {
 
   const { map: rows, usagePath } = loadStore(dataDir)
   let scanState = loadScanState(dataDir)
+  const titles = loadTitles(dataDir)
   let scanPromise = null
   let lastError = null
 
@@ -58,12 +59,20 @@ export function apply(ctx, config = {}) {
     const t0 = Date.now()
     try {
       const stateFiles = force ? {} : scanState.files
-      const { rows: found, files } = scanChangedArtifacts(sessionsRoot, stateFiles)
+      const { rows: found, titles: foundTitles, files } = scanChangedArtifacts(sessionsRoot, stateFiles)
       const appended = persistNewRows(rows, found, usagePath, improveRow)
+      let titleAdded = 0
+      for (const [id, title] of foundTitles) {
+        if (titles.get(id) !== title) {
+          titles.set(id, title)
+          titleAdded++
+        }
+      }
+      if (titleAdded > 0) saveTitles(dataDir, titles)
       scanState = { files }
       saveScanState(dataDir, scanState)
       lastError = null
-      log('info', `scan ${force ? '(full) ' : ''}+${appended} rows in ${Date.now() - t0}ms (total ${rows.size})`)
+      log('info', `scan ${force ? '(full) ' : ''}+${appended} rows, +${titleAdded} titles in ${Date.now() - t0}ms (total ${rows.size})`)
     } catch (error) {
       lastError = error
       log('warn', `scan failed: ${error instanceof Error ? error.message : String(error)}`)
@@ -78,10 +87,12 @@ export function apply(ctx, config = {}) {
   if (loadStoreVersion(dataDir) !== STORE_VERSION) {
     const t0 = Date.now()
     try {
-      const { rows: allRows, files } = scanChangedArtifacts(sessionsRoot, {})
+      const { rows: allRows, titles: allTitles, files } = scanChangedArtifacts(sessionsRoot, {})
       rows.clear()
       for (const r of allRows) rows.set(r.key, r)
       rewriteStore(rows, usagePath)
+      for (const [id, title] of allTitles) titles.set(id, title)
+      saveTitles(dataDir, titles)
       scanState = { files }
       saveScanState(dataDir, scanState)
       saveStoreVersion(dataDir, STORE_VERSION)
@@ -158,7 +169,7 @@ export function apply(ctx, config = {}) {
             send(res, 400, JSON.stringify({ error: 'bad date, expected YYYY-MM-DD' }), 'application/json; charset=utf-8')
             return
           }
-          send(res, 200, JSON.stringify({ date, rows: computeDayBreakdown([...rows.values()], date) }), 'application/json; charset=utf-8')
+          send(res, 200, JSON.stringify({ date, rows: computeDayBreakdown([...rows.values()], date).map((s) => ({ ...s, title: titles.get(s.session) || '' })) }), 'application/json; charset=utf-8')
         },
       }),
     )
@@ -173,7 +184,9 @@ export function apply(ctx, config = {}) {
             send(res, 400, JSON.stringify({ error: 'missing session id' }), 'application/json; charset=utf-8')
             return
           }
-          send(res, 200, JSON.stringify(computeSessionStats([...rows.values()], id)), 'application/json; charset=utf-8')
+          const summary = computeSessionStats([...rows.values()], id)
+          summary.title = titles.get(id) || ''
+          send(res, 200, JSON.stringify(summary), 'application/json; charset=utf-8')
         },
       }),
     )

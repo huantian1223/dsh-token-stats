@@ -367,8 +367,14 @@ window.__ModuleLoader__.load({
         try {
           const r = await fetch('/token-stats/api/day?date=' + encodeURIComponent(date), { cache: 'no-store' })
           if (!r.ok) throw new Error('HTTP ' + r.status)
-          const j = await r.json()
-          setDayDetail(j)
+          const text = await r.text()
+          if (!text.trim().startsWith('{')) {
+            // An HTML body here means the host route is not registered yet
+            // (the web server fell back to the SPA index) — i.e. DSH has not
+            // been restarted since this endpoint was added.
+            throw new Error('后端接口未加载——请重启 DSH 后重试')
+          }
+          setDayDetail(JSON.parse(text))
         } catch (e) {
           setDayError(String(e && e.message ? e.message : e))
         }

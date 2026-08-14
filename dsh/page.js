@@ -422,7 +422,13 @@ async function loadDay(date) {
   try {
     const r = await fetch('/token-stats/api/day?date=' + encodeURIComponent(date), { cache: 'no-store' })
     if (!r.ok) throw new Error('HTTP ' + r.status)
-    const j = await r.json()
+    const text = await r.text()
+    if (!text.trim().startsWith('{')) {
+      // HTML body = the host route is not registered (SPA fallback) — DSH
+      // has not been restarted since the endpoint was added.
+      throw new Error('后端接口未加载——请重启 DSH 后重试')
+    }
+    const j = JSON.parse(text)
     const rows = (j.rows || []).map((s) =>
       '<tr><td>' + (s.session || '').replace(/^session-/, '').slice(0, 8) + '…</td>' +
       '<td title="' + s.workspace + '">' + ((s.workspace || '').split(/[\\/]/).pop() || '—') + '</td>' +

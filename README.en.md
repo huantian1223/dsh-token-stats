@@ -4,7 +4,7 @@ Token usage statistics plugin for DeepSeek Harness (DSH). It parses real provide
 
 ## Features
 
-- **Six stat cards**: cumulative tokens, today's tokens (with share-of-total), peak tokens (highest single session), longest chat duration, current / longest streak days; the card grid adapts its column count to the container width (5-6 columns on wide surfaces, fewer in narrow ones) so titles and figures never truncate
+- **Six stat cards**: cumulative tokens, today's tokens (with share-of-total), peak tokens (highest single session), longest chat duration, current / longest streak days; a fixed 3×2 symmetric grid (2 columns on narrow screens) so titles and figures never truncate
 - **Activity heatmap**: GitHub-style 7-row calendar grid with daily / weekly / cumulative views and a 12-month / 3-month / 30-day range switch (3 months by default); hover a cell to preview that day's usage, **click a day cell to drill into that day's per-session usage (session titles shown, repeated titles auto-merged, paginated 10 rows per page)**, and export the current window as CSV
 - **Consumption breakdown**: input / output / cache read / cache write / reasoning, with full-precision numbers
 - **By model / workspace**: per-model and per-workspace token totals

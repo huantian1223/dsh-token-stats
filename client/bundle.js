@@ -27,6 +27,13 @@ window.__ModuleLoader__.load({
 .tks-panel h2{font-size:14px;margin:0 0 12px;font-weight:600}
 .tks-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}
 .tks-panel-head h2{margin:0}
+.tks-range-tabs{display:inline-flex;gap:2px;background:var(--dsw-alias-bg-layer-1,#232324);border:1px solid var(--dsw-alias-border-l2,#262e38);border-radius:8px;padding:2px}
+.tks-range{border:0;background:transparent;color:var(--dsw-alias-label-tertiary,#adb2b8);font:inherit;font-size:12px;line-height:18px;padding:2px 10px;border-radius:6px;cursor:pointer}
+.tks-range:hover{color:var(--dsw-alias-label-primary,#f9fafb)}
+.tks-range.tks-active{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#f9fafb)}
+.tks-balance-strip{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 28px}
+.tks-balance-strip .tks-balance-row{display:inline-flex;justify-content:flex-start;gap:8px;line-height:28px}
+.tks-balance-strip .tks-balance-note{flex-basis:100%;margin-top:2px}
 .tks-refresh-btn{border:1px solid var(--dsw-alias-border-l2,#262e38);background:transparent;color:var(--dsw-alias-label-tertiary,#adb2b8);font:inherit;font-size:12px;line-height:20px;padding:2px 10px;border-radius:999px;cursor:pointer}
 .tks-refresh-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#f9fafb)}
 .tks-tabs{display:flex;gap:28px;border:0;background:transparent;padding:0;margin-bottom:14px}
@@ -132,20 +139,35 @@ window.__ModuleLoader__.load({
     }
     const cell = (lv, tip) => '<div class="tks-hm-cell l' + lv + '" data-tip="' + tip + '"></div>'
 
-    function heatmapHtml(stats, view) {
+    function heatmapHtml(stats, view, range) {
       const h = stats.heatmap
+      // Window the full 12-month series down to the selected range (client
+      // side, no host change): cumulative is recomputed from the window start.
+      let daily = h.daily
+      let cumulative = h.cumulative
+      if (range && range !== '12m') {
+        const endNum = dayNumOf(daily[daily.length - 1].date)
+        const span = range === '30d' ? 30 : 92
+        const cutoff = endNum - span
+        daily = daily.filter((d) => dayNumOf(d.date) >= cutoff)
+        let run = 0
+        cumulative = daily.map((d) => {
+          run += d.tokens
+          return { date: d.date, tokens: run }
+        })
+      }
       // One shared 7-row calendar grid for every view (每日/每周/累计); only
       // the per-cell value and tooltip change, so switching tabs never jumps.
-      const byDate = new Map(h.daily.map((d) => [d.date, d]))
-      const cumByDate = new Map(h.cumulative.map((d) => [d.date, d.tokens]))
-      const startNum = dayNumOf(h.daily[0].date)
-      const endNum = dayNumOf(h.daily[h.daily.length - 1].date)
+      const byDate = new Map(daily.map((d) => [d.date, d]))
+      const cumByDate = new Map(cumulative.map((d) => [d.date, d.tokens]))
+      const startNum = dayNumOf(daily[0].date)
+      const endNum = dayNumOf(daily[daily.length - 1].date)
       const first = new Date(startNum * 86400000 + 12 * 3600000)
       const cursor0 = startNum - ((first.getDay() + 6) % 7)
       const mondayOf = (n) => n - ((new Date(n * 86400000 + 12 * 3600000).getDay() + 6) % 7)
       // per-week totals keyed by the week's Monday day number
       const weekTokens = new Map()
-      for (const d of h.daily) {
+      for (const d of daily) {
         const mon = mondayOf(dayNumOf(d.date))
         weekTokens.set(mon, (weekTokens.get(mon) ?? 0) + d.tokens)
       }
@@ -167,7 +189,7 @@ window.__ModuleLoader__.load({
         return '截至 ' + fmtDate(key) + ' 累计 ' + fmt(v) + ' 个 Token'
       }
       let max
-      if (view === 'daily') max = Math.max(1, ...h.daily.map((d) => d.tokens))
+      if (view === 'daily') max = Math.max(1, ...daily.map((d) => d.tokens))
       else if (view === 'weekly') max = Math.max(1, ...weekTokens.values())
       else max = Math.max(1, cumByDate.get(dayStr(endNum)) ?? 1)
       const weeks = []
@@ -210,6 +232,7 @@ window.__ModuleLoader__.load({
       const hideTitle = props?.hideTitle === true
       const [stats, setStats] = React.useState(null)
       const [view, setView] = React.useState('daily')
+      const [range, setRange] = React.useState('3m')
       const [err, setErr] = React.useState(null)
       const [updatedAt, setUpdatedAt] = React.useState(null)
       const [balance, setBalance] = React.useState(null)
@@ -366,7 +389,18 @@ window.__ModuleLoader__.load({
         ),
         h('div', { className: 'tks-cards' }, cardEls),
         h('div', { className: 'tks-panel' },
-          h('h2', null, 'Token 活动'),
+          h('div', { className: 'tks-panel-head' },
+            h('h2', null, 'Token 活动'),
+            h('div', { className: 'tks-range-tabs' },
+              ['12m', '3m', '30d'].map((r) =>
+                h('button', {
+                  key: r,
+                  className: 'tks-range' + (range === r ? ' tks-active' : ''),
+                  onClick: () => setRange(r),
+                }, { '12m': '12个月', '3m': '3个月', '30d': '30天' }[r]),
+              ),
+            ),
+          ),
           h('div', { className: 'tks-tabs' },
             ['daily', 'weekly', 'cumulative'].map((v) =>
               h('button', {
@@ -377,40 +411,40 @@ window.__ModuleLoader__.load({
             ),
           ),
           h('div', { className: 'tks-hm', ref: hmRef },
-            h('div', { className: 'tks-hm-inner', dangerouslySetInnerHTML: { __html: heatmapHtml(stats, view) } }),
+            h('div', { className: 'tks-hm-inner', dangerouslySetInnerHTML: { __html: heatmapHtml(stats, view, range) } }),
           ),
           h('div', { className: 'tks-tip', ref: tipRef }),
           err ? h('div', { className: 'tks-err', style: { marginTop: 12 } }, err) : null,
         ),
-        h('div', { className: 'tks-grid2' },
-          h('div', { className: 'tks-col' },
-            h('div', { className: 'tks-panel' },
-              h('h2', null, '消耗构成'),
-              h('table', { className: 'tks-table' }, h('tbody', null, breakdownRows)),
+        balance && balance.ok
+          ? h('div', { className: 'tks-panel' },
+            h('div', { className: 'tks-panel-head' },
+              h('h2', null, 'DeepSeek 余额'),
+              h('button', { type: 'button', className: 'tks-refresh-btn', onClick: () => void refreshBalance() }, '刷新'),
             ),
-            balance && balance.ok
-              ? h('div', { className: 'tks-panel' },
-                h('div', { className: 'tks-panel-head' },
-                  h('h2', null, 'DeepSeek 余额'),
-                  h('button', { type: 'button', className: 'tks-refresh-btn', onClick: () => void refreshBalance() }, '刷新'),
-                ),
-                h('div', { className: 'tks-balance-hero' },
-                  h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
-                  h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
-                ),
-                h('div', { className: 'tks-balance-row' },
-                  h('span', null, '充值余额'),
-                  h('span', null, fmtMoney(balance.toppedUp, balance.currency)),
-                ),
-                h('div', { className: 'tks-balance-row' },
-                  h('span', null, '赠送余额'),
-                  h('span', null, fmtMoney(balance.granted, balance.currency)),
-                ),
-                h('div', { className: 'tks-balance-note' },
-                  '数据来自 DeepSeek 开放平台 /user/balance，15 分钟缓存',
-                ),
-              )
-              : null,
+            h('div', { className: 'tks-balance-strip' },
+              h('div', { className: 'tks-balance-hero' },
+                h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
+                h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
+              ),
+              h('div', { className: 'tks-balance-row' },
+                h('span', null, '充值余额'),
+                h('span', null, fmtMoney(balance.toppedUp, balance.currency)),
+              ),
+              h('div', { className: 'tks-balance-row' },
+                h('span', null, '赠送余额'),
+                h('span', null, fmtMoney(balance.granted, balance.currency)),
+              ),
+              h('div', { className: 'tks-balance-note' },
+                '数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存',
+              ),
+            ),
+          )
+          : null,
+        h('div', { className: 'tks-grid2' },
+          h('div', { className: 'tks-panel' },
+            h('h2', null, '消耗构成'),
+            h('table', { className: 'tks-table' }, h('tbody', null, breakdownRows)),
           ),
           h('div', { className: 'tks-panel' },
             h('h2', null, '按模型 / 工作区'),

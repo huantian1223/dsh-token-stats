@@ -60,13 +60,20 @@ export function renderPage() {
   .hm-cell.l5 { background: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
-  .col2 { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-  .bal-hero { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 10px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; }
+  .panel-head h2 { margin: 0; }
+  .range-tabs { display: inline-flex; gap: 2px; background: var(--bg-cell); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+  .range { border: 0; background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; line-height: 18px; padding: 2px 10px; border-radius: 6px; cursor: pointer; }
+  .range:hover { color: var(--text); }
+  .range.active { background: rgba(255,255,255,.08); color: var(--text); }
+  .bal-strip { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 28px; }
+  .bal-strip .bal-row { display: inline-flex; justify-content: flex-start; gap: 8px; line-height: 28px; }
+  .bal-strip .bal-note { flex-basis: 100%; margin-top: 2px; }
+  .bal-hero { display: flex; align-items: baseline; gap: 10px; }
   .bal-hero b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.4px; color: var(--text); }
   .bal-status { font-size: 12px; color: #22c55e; }
   .bal-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; line-height: 24px; color: var(--text-dim); }
   .bal-note { font-size: 11px; line-height: 18px; color: var(--text-dim); margin-top: 6px; }
-  .head-with-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .refresh-btn { border: 1px solid var(--border); background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; line-height: 20px; padding: 2px 10px; border-radius: 999px; cursor: pointer; }
   .refresh-btn:hover { background: rgba(255,255,255,.08); color: var(--text); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -91,7 +98,14 @@ export function renderPage() {
   <div class="cards" id="cards"></div>
 
   <div class="panel">
-    <h2>Token 活动</h2>
+    <div class="panel-head">
+      <h2>Token 活动</h2>
+      <div class="range-tabs" id="rangeTabs">
+        <button class="range" data-range="12m">12个月</button>
+        <button class="range active" data-range="3m">3个月</button>
+        <button class="range" data-range="30d">30天</button>
+      </div>
+    </div>
     <div class="tabs" id="tabs">
       <button class="tab active" data-view="daily">每日</button>
       <button class="tab" data-view="weekly">每周</button>
@@ -101,11 +115,16 @@ export function renderPage() {
     <div class="tip" id="tip"></div>
   </div>
 
-  <div class="grid2">
-    <div class="col2">
-      <div class="panel"><h2>消耗构成</h2><div id="breakdown"><div class="skeleton">加载中…</div></div></div>
-      <div class="panel"><h2 class="head-with-btn">DeepSeek 余额<button class="refresh-btn" id="balanceRefresh" type="button">刷新</button></h2><div id="balance"><div class="skeleton">加载中…</div></div></div>
+  <div class="panel">
+    <div class="panel-head">
+      <h2>DeepSeek 余额</h2>
+      <button class="refresh-btn" id="balanceRefresh" type="button">刷新</button>
     </div>
+    <div id="balance"><div class="skeleton">加载中…</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel"><h2>消耗构成</h2><div id="breakdown"><div class="skeleton">加载中…</div></div></div>
     <div class="panel"><h2>按模型 / 工作区</h2><div id="models"><div class="skeleton">加载中…</div></div></div>
   </div>
 </div>
@@ -114,6 +133,7 @@ export function renderPage() {
 const $ = (s) => document.querySelector(s)
 let STATE = null
 let VIEW = 'daily'
+let RANGE = '3m'
 
 const fmt = (n) => {
   if (!Number.isFinite(n)) return '—'
@@ -164,17 +184,32 @@ function renderHeatmap() {
   const inner = document.createElement('div')
   inner.className = 'hm-inner'
   const h = STATE.heatmap
+  // Window the full 12-month series down to the selected range; cumulative is
+  // recomputed from the window start.
+  let daily = h.daily
+  let cumulative = h.cumulative
+  if (RANGE !== '12m') {
+    const endNum0 = dayNumOf(daily[daily.length - 1].date)
+    const span = RANGE === '30d' ? 30 : 92
+    const cutoff = endNum0 - span
+    daily = daily.filter((d) => dayNumOf(d.date) >= cutoff)
+    let run = 0
+    cumulative = daily.map((d) => {
+      run += d.tokens
+      return { date: d.date, tokens: run }
+    })
+  }
   // One shared 7-row calendar grid for every view (每日/每周/累计); only the
   // per-cell value and tooltip change, so switching tabs never jumps.
-  const byDate = new Map(h.daily.map((d) => [d.date, d]))
-  const cumByDate = new Map(h.cumulative.map((d) => [d.date, d.tokens]))
-  const startNum = dayNumOf(h.daily[0].date)
-  const endNum = dayNumOf(h.daily[h.daily.length - 1].date)
+  const byDate = new Map(daily.map((d) => [d.date, d]))
+  const cumByDate = new Map(cumulative.map((d) => [d.date, d.tokens]))
+  const startNum = dayNumOf(daily[0].date)
+  const endNum = dayNumOf(daily[daily.length - 1].date)
   const first = new Date(startNum * 86400000 + 12 * 3600000)
   const cursor0 = startNum - ((first.getDay() + 6) % 7)
   const mondayOf = (n) => n - ((new Date(n * 86400000 + 12 * 3600000).getDay() + 6) % 7)
   const weekTokens = new Map()
-  for (const d of h.daily) {
+  for (const d of daily) {
     const mon = mondayOf(dayNumOf(d.date))
     weekTokens.set(mon, (weekTokens.get(mon) ?? 0) + d.tokens)
   }
@@ -196,7 +231,7 @@ function renderHeatmap() {
     return '截至 ' + fmtDate(key) + ' 累计 ' + fmt(v) + ' 个 Token'
   }
   let max
-  if (VIEW === 'daily') max = Math.max(1, ...h.daily.map((d) => d.tokens))
+  if (VIEW === 'daily') max = Math.max(1, ...daily.map((d) => d.tokens))
   else if (VIEW === 'weekly') max = Math.max(1, ...weekTokens.values())
   else max = Math.max(1, cumByDate.get(dayStr(endNum)) ?? 1)
   const weeks = []
@@ -277,6 +312,11 @@ document.querySelectorAll('#tabs .tab').forEach((b) => b.addEventListener('click
   document.querySelectorAll('#tabs .tab').forEach((x) => x.classList.toggle('active', x === b))
   renderHeatmap()
 }))
+document.querySelectorAll('#rangeTabs .range').forEach((b) => b.addEventListener('click', () => {
+  RANGE = b.dataset.range
+  document.querySelectorAll('#rangeTabs .range').forEach((x) => x.classList.toggle('active', x === b))
+  renderHeatmap()
+}))
 
 // Custom hover preview for heatmap cells (delegated; survives innerHTML swaps).
 const hmBox = $('#hm')
@@ -316,10 +356,12 @@ async function loadBalance(force) {
     if (!j.ok) return
     const money = (n) => (j.currency && j.currency !== 'CNY' ? j.currency + ' ' : '¥') + Number(n ?? 0).toFixed(2)
     $('#balance').innerHTML =
+      '<div class="bal-strip">' +
       '<div class="bal-hero"><b>' + money(j.total) + '</b><span class="bal-status">' + (j.isAvailable ? '可用' : '不可用') + '</span></div>' +
       '<div class="bal-row"><span>充值余额</span><span>' + money(j.toppedUp) + '</span></div>' +
       '<div class="bal-row"><span>赠送余额</span><span>' + money(j.granted) + '</span></div>' +
-      '<div class="bal-note">数据来自 DeepSeek 开放平台 /user/balance，15 分钟缓存</div>'
+      '<div class="bal-note">数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存</div>' +
+      '</div>'
   } catch {
     $('#balance').innerHTML = ''
   }

@@ -59,6 +59,9 @@ window.__ModuleLoader__.load({
 .tks-balance-row{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;line-height:24px;color:var(--dsw-alias-label-secondary,#cfd3d6)}
 .tks-balance-row b{color:var(--dsw-alias-label-primary,#f9fafb);font-weight:600;font-variant-numeric:tabular-nums}
 .tks-balance-note{font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary,#adb2b8);margin-top:6px}
+.tks-balance-hero{display:flex;align-items:baseline;gap:10px;margin:2px 0 10px}
+.tks-balance-hero-amt{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px;color:var(--dsw-alias-label-primary,#f9fafb)}
+.tks-balance-hero-status{font-size:12px;color:var(--dsw-alias-state-success-primary,#22c55e)}
 .tks-overlay{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
 .tks-overlay-panel{background:var(--dsw-alias-bg-layer-2,#151a21);border:1px solid var(--dsw-alias-border-l1,#2c3540);border-radius:12px;box-shadow:0 18px 56px rgba(0,0,0,.5);width:100%;max-width:980px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden;margin:auto 0}
 .tks-overlay-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;padding:16px 20px;border-bottom:1px solid var(--dsw-alias-border-l2,#262e38)}
@@ -205,6 +208,7 @@ window.__ModuleLoader__.load({
       const [view, setView] = React.useState('daily')
       const [err, setErr] = React.useState(null)
       const [updatedAt, setUpdatedAt] = React.useState(null)
+      const [balance, setBalance] = React.useState(null)
       const hmRef = React.useRef(null)
       const tipRef = React.useRef(null)
       React.useEffect(() => {
@@ -270,6 +274,28 @@ window.__ModuleLoader__.load({
         // refs are null and the listeners would never be attached. The effect
         // must re-run the moment stats loads.
       }, [!!stats])
+
+      // DeepSeek account balance: slow-moving, polled on a long interval.
+      // Must stay above the early returns (hooks order stability).
+      React.useEffect(() => {
+        let alive = true
+        const load = async () => {
+          try {
+            const r = await fetch('/token-stats/api/balance', { cache: 'no-store' })
+            if (!r.ok) return
+            const j = await r.json()
+            if (alive) setBalance(j)
+          } catch {
+            // next poll retries
+          }
+        }
+        load()
+        const t = setInterval(load, 15 * 60 * 1000)
+        return () => {
+          alive = false
+          clearInterval(t)
+        }
+      }, [])
 
       const h = React.createElement
       if (err && !stats) return h('div', { className: 'tks-page' }, h('div', { className: 'tks-err' }, '无法读取统计：' + err))
@@ -358,6 +384,26 @@ window.__ModuleLoader__.load({
             ),
           ),
         ),
+        balance && balance.ok
+          ? h('div', { className: 'tks-panel' },
+            h('h2', null, 'DeepSeek 余额'),
+            h('div', { className: 'tks-balance-hero' },
+              h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
+              h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
+            ),
+            h('div', { className: 'tks-balance-row' },
+              h('span', null, '充值余额'),
+              h('span', null, fmtMoney(balance.toppedUp, balance.currency)),
+            ),
+            h('div', { className: 'tks-balance-row' },
+              h('span', null, '赠送余额'),
+              h('span', null, fmtMoney(balance.granted, balance.currency)),
+            ),
+            h('div', { className: 'tks-balance-note' },
+              '数据来自 DeepSeek 开放平台 /user/balance，15 分钟缓存',
+            ),
+          )
+          : null,
       )
     }
 

@@ -60,6 +60,11 @@ export function renderPage() {
   .hm-cell.l5 { background: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .bal-hero { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 10px; }
+  .bal-hero b { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.5px; color: var(--text); }
+  .bal-status { font-size: 12px; color: #22c55e; }
+  .bal-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; line-height: 24px; color: var(--text-dim); }
+  .bal-note { font-size: 11px; line-height: 18px; color: var(--text-dim); margin-top: 6px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   th { color: var(--text-dim); font-weight: 500; font-size: 12px; }
@@ -96,6 +101,7 @@ export function renderPage() {
     <div class="panel"><h2>消耗构成</h2><div id="breakdown"><div class="skeleton">加载中…</div></div></div>
     <div class="panel"><h2>按模型 / 工作区</h2><div id="models"><div class="skeleton">加载中…</div></div></div>
   </div>
+  <div class="panel"><h2>DeepSeek 余额</h2><div id="balance"><div class="skeleton">加载中…</div></div></div>
 </div>
 
 <script>
@@ -294,6 +300,26 @@ if (hmBox && tipEl) {
 
 load()
 setInterval(load, 15000)
+
+// DeepSeek account balance (server-side key, 15-minute cache).
+async function loadBalance() {
+  try {
+    const r = await fetch('/token-stats/api/balance', { cache: 'no-store' })
+    if (!r.ok) return
+    const j = await r.json()
+    if (!j.ok) return
+    const money = (n) => (j.currency && j.currency !== 'CNY' ? j.currency + ' ' : '¥') + Number(n ?? 0).toFixed(2)
+    $('#balance').innerHTML =
+      '<div class="bal-hero"><b>' + money(j.total) + '</b><span class="bal-status">' + (j.isAvailable ? '可用' : '不可用') + '</span></div>' +
+      '<div class="bal-row"><span>充值余额</span><span>' + money(j.toppedUp) + '</span></div>' +
+      '<div class="bal-row"><span>赠送余额</span><span>' + money(j.granted) + '</span></div>' +
+      '<div class="bal-note">数据来自 DeepSeek 开放平台 /user/balance，15 分钟缓存</div>'
+  } catch {
+    $('#balance').innerHTML = ''
+  }
+}
+loadBalance()
+setInterval(loadBalance, 15 * 60 * 1000)
 </script>
 </body>
 </html>`

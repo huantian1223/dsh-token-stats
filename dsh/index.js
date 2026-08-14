@@ -22,9 +22,10 @@ import { usageRowFromEvent } from './scan.js'
 import { computeStats, computeSessionStats } from './stats.js'
 import { loadStore, persistNewRows, loadScanState, saveScanState, rewriteStore, loadStoreVersion, saveStoreVersion, STORE_VERSION } from './store.js'
 import { renderPage } from './page.js'
+import { createBalanceService } from './balance.js'
 
 export const name = 'token-stats'
-export const inject = ['webServer']
+export const inject = ['webServer', 'credentials']
 
 /** Replace an existing row when the incoming one carries strictly more info
  * (a scan row has the model/workspace a live-captured row may lack). */
@@ -134,7 +135,18 @@ export function apply(ctx, config = {}) {
         send(res, 500, JSON.stringify({ error: String(error?.message ?? error) }), 'application/json; charset=utf-8')
       }
     }
+    const balanceService = createBalanceService(ctx, config)
+    const balanceHandler = async (req, res) => {
+      try {
+        const force = (req.url ?? '').includes('force=1')
+        const data = await balanceService.get(force)
+        send(res, 200, JSON.stringify(data), 'application/json; charset=utf-8')
+      } catch (error) {
+        send(res, 500, JSON.stringify({ ok: false, error: String(error?.message ?? error) }), 'application/json; charset=utf-8')
+      }
+    }
     routeDisposers.push(webServer.register({ kind: 'exact', path: '/token-stats/api/stats', handler: statsHandler }))
+    routeDisposers.push(webServer.register({ kind: 'exact', path: '/token-stats/api/balance', handler: balanceHandler }))
     routeDisposers.push(
       webServer.register({
         kind: 'prefix',
@@ -160,7 +172,7 @@ export function apply(ctx, config = {}) {
         },
       }),
     )
-    log('info', 'routes registered: /token-stats, /token-stats/api/stats, /token-stats/api/session/*')
+    log('info', 'routes registered: /token-stats, /token-stats/api/stats, /token-stats/api/balance, /token-stats/api/session/*')
   } else {
     log('warn', 'no ctx.webServer; API routes not registered')
   }

@@ -9,6 +9,7 @@ Token usage statistics plugin for DeepSeek Harness (DSH). It parses real provide
 - **Consumption breakdown**: input / output / cache read / cache write / reasoning, with full-precision numbers
 - **By model / workspace**: per-model and per-workspace token totals
 - **Live session badge** in the conversation header: current session token usage; click for a detail dialog with a shortcut to the full statistics
+- **DeepSeek account balance**: account balance (¥) shown next to the badge; click for the detail dialog with topped-up / granted balance and availability (the API key stays in the host process, never sent to the browser)
 - **Standalone stats page**: `http://127.0.0.1:3080/token-stats` (dark theme, 15-second auto-refresh)
 
 ## Data source
@@ -45,6 +46,7 @@ The plugin mounts through DSH's profile plugin mechanism (managed by `dsh plugin
 | Endpoint | Description |
 |---|---|
 | `GET /token-stats/api/stats` | Full stats snapshot (everything the cards / heatmap / breakdowns need) |
+| `GET /token-stats/api/balance` | DeepSeek account balance (15-minute cache; `?force=1` to bypass) |
 | `GET /token-stats/api/session/<sessionId>` | Single-session usage summary (used by the badge / dialog) |
 | `GET /token-stats` | Standalone stats page (HTML) |
 

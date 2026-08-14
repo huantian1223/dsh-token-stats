@@ -51,6 +51,14 @@ window.__ModuleLoader__.load({
 .tks-badge:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .tks-badge .tks-badge-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-business-primary,#4cc2ff);flex:none}
 .tks-badge b{color:var(--dsw-alias-label-primary,#e6e9ee);font-weight:600}
+.tks-badge-group{display:inline-flex;align-items:center;gap:6px}
+.tks-balance{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:32px;color:var(--dsw-alias-label-primary,#e6e9ee);font:var(--dsw-font-xs-13,13px);font-variant-numeric:tabular-nums;background:0 0;border:1px solid var(--dsw-alias-border-l2,#262e38);border-radius:18px;padding:0 12px;cursor:pointer;white-space:nowrap}
+.tks-balance:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.tks-balance-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-success-primary,#22c55e);flex:none}
+.tks-balance-box{margin-top:14px;padding-top:12px;border-top:1px solid var(--dsw-alias-border-l2,#262e38)}
+.tks-balance-row{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;line-height:24px;color:var(--dsw-alias-label-secondary,#cfd3d6)}
+.tks-balance-row b{color:var(--dsw-alias-label-primary,#f9fafb);font-weight:600;font-variant-numeric:tabular-nums}
+.tks-balance-note{font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary,#adb2b8);margin-top:6px}
 .tks-overlay{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
 .tks-overlay-panel{background:var(--dsw-alias-bg-layer-2,#151a21);border:1px solid var(--dsw-alias-border-l1,#2c3540);border-radius:12px;box-shadow:0 18px 56px rgba(0,0,0,.5);width:100%;max-width:980px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden;margin:auto 0}
 .tks-overlay-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;padding:16px 20px;border-bottom:1px solid var(--dsw-alias-border-l2,#262e38)}
@@ -83,6 +91,12 @@ window.__ModuleLoader__.load({
     }
     /** Full-precision display for detail tables: thousand-separated digits. */
     const fmtFull = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('en-US') : '—')
+    /** Money display: ¥ for CNY, otherwise the currency code prefix. */
+    const fmtMoney = (n, currency) => {
+      const v = Number(n ?? 0)
+      const s = v.toFixed(2)
+      return (currency && currency !== 'CNY' ? currency + ' ' : '¥') + s
+    }
     const fmtDur = (ms) => {
       const s = Math.round(ms / 1000)
       if (s < 60) return s + ' 秒'
@@ -411,6 +425,7 @@ window.__ModuleLoader__.load({
     function TokenBadge(props) {
       const sessionId = props?.sessionId
       const [info, setInfo] = React.useState(null)
+      const [balance, setBalance] = React.useState(null)
       const [open, setOpen] = React.useState(false)
       const [fullOpen, setFullOpen] = React.useState(false)
       React.useEffect(() => {
@@ -433,6 +448,26 @@ window.__ModuleLoader__.load({
           clearInterval(t)
         }
       }, [sessionId])
+      // DeepSeek account balance: slow-moving, polled on a long interval.
+      React.useEffect(() => {
+        let alive = true
+        const load = async () => {
+          try {
+            const r = await fetch('/token-stats/api/balance', { cache: 'no-store' })
+            if (!r.ok) return
+            const j = await r.json()
+            if (alive) setBalance(j)
+          } catch {
+            // next poll retries
+          }
+        }
+        load()
+        const t = setInterval(load, 15 * 60 * 1000)
+        return () => {
+          alive = false
+          clearInterval(t)
+        }
+      }, [])
       const h = React.createElement
       const total = info?.tokens?.total ?? 0
       if (!info || total <= 0) return null
@@ -460,16 +495,37 @@ window.__ModuleLoader__.load({
         setOpen(false)
         setFullOpen(true)
       }
+      const balanceTip =
+        balance && balance.ok
+          ? 'DeepSeek 余额' +
+            '\n总余额 ' + fmtMoney(balance.total, balance.currency) +
+            '\n充值 ' + fmtMoney(balance.toppedUp, balance.currency) +
+            '\n赠送 ' + fmtMoney(balance.granted, balance.currency) +
+            (balance.isAvailable ? '' : '\n当前不可用')
+          : null
       return h(React.Fragment, null,
-        h('button', {
-          type: 'button',
-          className: 'tks-badge',
-          title: tip,
-          onClick: () => setOpen(true),
-        },
-          h('span', { className: 'tks-badge-dot' }),
-          h('span', null, '本会话 '),
-          h('b', null, fmt(total)),
+        h('div', { className: 'tks-badge-group' },
+          h('button', {
+            type: 'button',
+            className: 'tks-badge',
+            title: tip,
+            onClick: () => setOpen(true),
+          },
+            h('span', { className: 'tks-badge-dot' }),
+            h('span', null, '本会话 '),
+            h('b', null, fmt(total)),
+          ),
+          balance && balance.ok
+            ? h('button', {
+              type: 'button',
+              className: 'tks-balance',
+              title: balanceTip,
+              onClick: () => setOpen(true),
+            },
+              h('span', { className: 'tks-balance-dot' }),
+              h('span', null, fmtMoney(balance.total, balance.currency)),
+            )
+            : null,
         ),
         h(TksOverlay, {
           open,
@@ -487,6 +543,25 @@ window.__ModuleLoader__.load({
               modelRows,
             ),
           ),
+          balance && balance.ok
+            ? h('div', { className: 'tks-balance-box' },
+              h('div', { className: 'tks-balance-row' },
+                h('span', null, 'DeepSeek 余额'),
+                h('b', null, fmtMoney(balance.total, balance.currency)),
+              ),
+              h('div', { className: 'tks-balance-row' },
+                h('span', null, '其中充值'),
+                h('span', null, fmtMoney(balance.toppedUp, balance.currency)),
+              ),
+              h('div', { className: 'tks-balance-row' },
+                h('span', null, '其中赠送'),
+                h('span', null, fmtMoney(balance.granted, balance.currency)),
+              ),
+              h('div', { className: 'tks-balance-note' },
+                balance.isAvailable ? '可用，可正常调用' : '当前不可用（余额不足或账户受限）',
+              ),
+            )
+            : null,
         ),
         h(TksOverlay, {
           open: fullOpen,

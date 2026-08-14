@@ -11,6 +11,7 @@ DeepSeek Harness（DSH）的 Token 用量统计插件。直接解析 DSH 会话�
 - **消耗构成**：输入 / 输出 / 缓存读取 / 缓存写入 / 推理，完整精确数字
 - **按模型 / 工作区**：各模型、各工作区消耗拆分
 - **会话头部实时角标**：当前会话已用 Token，点击弹出本会话明细，可一键打开完整统计
+- **DeepSeek 账户余额**：角标右侧显示账户余额（¥），点击弹窗查看充值/赠送明细与可用状态（API Key 仅存于 host 进程，不下发浏览器）
 - **独立统计页**：`http://127.0.0.1:3080/token-stats`（深色主题，15 秒自动刷新）
 
 ## 数据来源
@@ -47,6 +48,7 @@ DeepSeek Harness（DSH）的 Token 用量统计插件。直接解析 DSH 会话�
 | 端点 | 说明 |
 |---|---|
 | `GET /token-stats/api/stats` | 完整统计快照（卡片/热力图/明细所需全部数据） |
+| `GET /token-stats/api/balance` | DeepSeek 账户余额（15 分钟缓存，`?force=1` 强制刷新） |
 | `GET /token-stats/api/session/<sessionId>` | 单个会话的用量摘要（角标/弹窗用） |
 | `GET /token-stats` | 独立统计页（HTML） |
 

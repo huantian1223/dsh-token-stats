@@ -1,0 +1,6 @@
+# dsh bundle layer: mount the token-stats host plugin (dsh/index.js).
+# The client half rides the same package through its `dsh.client` manifest
+# (exports["./client"] bundle, loaded by the web shell at boot).
+- insert:
+    - id: token-stats
+      name: 'dsh-token-stats'

@@ -2,6 +2,9 @@
   "name": "dsh-token-stats",
   "version": "0.2.0",
   "description": "Token usage statistics for DeepSeek Harness: cumulative/today/peak tokens, streaks, a 12-month activity heatmap (daily/weekly/cumulative, range switch, day drill-down, CSV export), per-model/workspace breakdowns, live session badge and DeepSeek account balance. Host half records real provider usage from session logs; client half adds a Token Stats page to Web Settings.",
+  "scripts": {
+    "test": "vitest run"
+  },
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -49,5 +52,9 @@
       ],
       "platform": "web"
     }
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.7.0",
+    "vitest": "^4.1.10"
   }
 }

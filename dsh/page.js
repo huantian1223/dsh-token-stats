@@ -412,7 +412,7 @@ $('#exportCsv').addEventListener('click', () => {
   const { daily } = windowDaily(STATE.heatmap, RANGE)
   const lines = [['日期', 'Token', '调用次数']]
   for (const d of daily) lines.push([d.date, d.tokens, d.steps])
-  const csv = '\ufeff' + lines.map((r) => r.join(',')).join('\n')
+  const csv = '\\ufeff' + lines.map((r) => r.join(',')).join('\\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)

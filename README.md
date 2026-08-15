@@ -4,6 +4,8 @@
 
 DeepSeek Harness（DSH）的 Token 用量统计插件。直接解析 DSH 会话日志（`session.jsonl.zstd`）中的真实 provider usage 数据，在 Web GUI 内提供完整的用量统计：累计/今日/峰值 Token、最长聊天时长、连续使用天数，以及 12 个月的活动热力图（每日/每周/累计），并按模型、工作区拆分明细。
 
+![Token 使用统计](docs/screenshot.png)
+
 ## 功能
 
 ### 统计卡片（6 张，3×2 布局）
@@ -59,6 +61,8 @@ GitHub 风格的 7 行日历网格（周一至周日），滚动 12 个月窗口
 
 刷新行为：点击刷新走 `?force=1` 强制查询 DeepSeek 开放平台（`/user/balance`），按钮带「刷新中…」反馈；平时 15 分钟自动轮询；请求失败时回退到上次缓存值，不闪断。**API Key 通过 DSH 凭证服务解析，仅在 host 进程内使用，绝不下发浏览器**。
 
+**余额预警**：当余额低于配置阈值（默认 ¥5，`balanceWarnThreshold` 可调，0 关闭）时——角标余额胶囊的圆点变红、余额弹窗与统计页面板的状态改为红色「余额不足」并提示充值，防止余额耗尽导致调用静默失败。
+
 ### 独立统计页
 
 `http://127.0.0.1:3080/token-stats`：与 GUI 内完整统计同款的深色页面（不依赖 GUI 也能直接访问），15 秒自动刷新，热力图/余额/明细/导出/下钻功能齐全。
@@ -68,6 +72,40 @@ GitHub 风格的 7 行日历网格（周一至周日），滚动 12 个月窗口
 所有数字均来自 DSH 会话日志中记录的真实 provider usage（`inputTokens` / `outputTokens` / `cacheReadTokens` / `cacheWriteTokens` / `reasoningTokens`），不估算、不抓包。插件在启动时回放历史会话日志，并通过 `session/event` 实时捕获新用量，30 秒增量复核。
 
 数据存储于 `$DSH_HOME/token-stats/usage.jsonl`（`$DSH_HOME` 即 DSH 数据根目录，默认 `~/.dsh`，也可通过 `DSH_HOME` 环境变量指定）。
+
+## 配置
+
+插件的可调参数通过 `$DSH_HOME/token-stats/config.json` 覆盖（默认值如下，缺省即用默认）：
+
+```json
+{
+  "gapMs": 1800000,
+  "rescanIntervalMs": 30000,
+  "balanceCacheMs": 900000,
+  "windowMonths": 12,
+  "defaultRange": "3m",
+  "balanceWarnThreshold": 5
+}
+```
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `gapMs` | 1800000（30 分钟） | 会话切分为"单次连续聊天"的空闲阈值 |
+| `rescanIntervalMs` | 30000（30 秒） | 会话日志增量复核周期 |
+| `balanceCacheMs` | 900000（15 分钟） | 余额查询缓存时长 |
+| `windowMonths` | 12 | 热力图完整时间窗口（月） |
+| `defaultRange` | `3m` | 热力图默认显示范围（`12m`/`3m`/`30d`） |
+| `balanceWarnThreshold` | 5（¥） | 余额低于该值触发红色预警（0 关闭） |
+
+修改后重启 DSH 生效；当前生效配置可在 `GET /token-stats/api/config` 查看。
+
+## 测试
+
+```bash
+pnpm test
+```
+
+vitest 测试覆盖 zstd 多帧解码、日志解析、聚合统计、存储去重/合并、配置合并与余额服务（24 个用例，构造数据、不依赖真实日志）。
 
 ## 安装
 

@@ -2,6 +2,8 @@
 
 Token usage statistics plugin for DeepSeek Harness (DSH). It parses real provider usage data from DSH session logs (`session.jsonl.zstd`) and provides complete usage statistics inside the Web GUI: cumulative / today / peak tokens, longest chat duration, streak days, and a 12-month activity heatmap (daily / weekly / cumulative), broken down by model and workspace.
 
+![Token usage statistics](docs/screenshot.png)
+
 ## Features
 
 ### Stat cards (6 cards, 3×2 grid)
@@ -61,11 +63,47 @@ Refresh behavior: clicking refresh forces a live query to the DeepSeek open plat
 
 `http://127.0.0.1:3080/token-stats`: the same dark-themed full statistics page as the GUI, directly accessible without opening the GUI, auto-refreshing every 15 seconds, with heatmap / balance / breakdowns / export / drill-down all working.
 
+**Balance warning**: when the balance drops below the configured threshold (¥5 by default, `balanceWarnThreshold`, 0 disables it), the header pill dot turns red and the balance dialog / stats-page panel show a red "余额不足" state with a top-up reminder, so calls never fail silently on an exhausted balance.
+
 ## Data source
 
 All figures come from real provider usage recorded in DSH session logs (`inputTokens` / `outputTokens` / `cacheReadTokens` / `cacheWriteTokens` / `reasoningTokens`) — no estimation, no traffic interception. On startup the plugin replays historical session logs, captures new usage live via `session/event`, and reconciles incrementally every 30 seconds.
 
 Data is stored at `$DSH_HOME/token-stats/usage.jsonl` (`$DSH_HOME` is the DSH data root; it defaults to `~/.dsh` or the `DSH_HOME` environment variable).
+
+## Configuration
+
+Tunables are overridden through `$DSH_HOME/token-stats/config.json` (defaults apply when absent):
+
+```json
+{
+  "gapMs": 1800000,
+  "rescanIntervalMs": 30000,
+  "balanceCacheMs": 900000,
+  "windowMonths": 12,
+  "defaultRange": "3m",
+  "balanceWarnThreshold": 5
+}
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `gapMs` | 1800000 (30 min) | Inactivity gap that splits a session into separate chats |
+| `rescanIntervalMs` | 30000 (30 s) | Session-log reconciliation interval |
+| `balanceCacheMs` | 900000 (15 min) | Balance query cache TTL |
+| `windowMonths` | 12 | Full heatmap window in months |
+| `defaultRange` | `3m` | Default heatmap range (`12m`/`3m`/`30d`) |
+| `balanceWarnThreshold` | 5 (¥) | Red balance warning below this amount (0 disables) |
+
+Restart DSH after editing; the effective config is exposed at `GET /token-stats/api/config`.
+
+## Tests
+
+```bash
+pnpm test
+```
+
+Vitest suite covering zstd multi-frame decoding, log parsing, aggregation, store dedupe/merge, config merging and the balance service (24 cases, fixture data, no live logs).
 
 ## Installation
 

@@ -72,12 +72,15 @@ window.__ModuleLoader__.load({
 .tks-balance{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:32px;color:var(--dsw-alias-label-primary,#e6e9ee);font:var(--dsw-font-xs-13,13px);font-variant-numeric:tabular-nums;background:0 0;border:1px solid var(--dsw-alias-border-l2,#262e38);border-radius:18px;padding:0 12px;cursor:pointer;white-space:nowrap}
 .tks-balance:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .tks-balance-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-success-primary,#22c55e);flex:none}
+.tks-balance-dot.low{background:var(--dsw-alias-state-error-primary,#f25a5a)}
 .tks-balance-row{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;line-height:24px;color:var(--dsw-alias-label-secondary,#cfd3d6)}
 .tks-balance-row b{color:var(--dsw-alias-label-primary,#f9fafb);font-weight:600;font-variant-numeric:tabular-nums}
 .tks-balance-note{font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary,#adb2b8);margin-top:6px}
+.tks-balance-note.low{color:var(--dsw-alias-state-error-primary,#f25a5a)}
 .tks-balance-hero{display:flex;align-items:baseline;gap:10px;margin:2px 0 10px}
 .tks-balance-hero-amt{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.4px;color:var(--dsw-alias-label-primary,#f9fafb)}
 .tks-balance-hero-status{font-size:12px;color:var(--dsw-alias-state-success-primary,#22c55e)}
+.tks-balance-hero-status.low{color:var(--dsw-alias-state-error-primary,#f25a5a)}
 .tks-overlay{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
 .tks-overlay-panel{background:var(--dsw-alias-bg-layer-2,#151a21);border:1px solid var(--dsw-alias-border-l1,#2c3540);border-radius:12px;box-shadow:0 18px 56px rgba(0,0,0,.5);width:100%;max-width:980px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden;margin:auto 0}
 .tks-overlay-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;padding:16px 20px;border-bottom:1px solid var(--dsw-alias-border-l2,#262e38)}
@@ -348,6 +351,21 @@ window.__ModuleLoader__.load({
           clearInterval(t)
         }
       }, [])
+      // Adopt the configured default heatmap range once (e.g. from config.json).
+      React.useEffect(() => {
+        let alive = true
+        fetch('/token-stats/api/config', { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j) => {
+            if (alive && j && j.defaultRange && ['12m', '3m', '30d'].includes(j.defaultRange)) {
+              setRange(j.defaultRange)
+            }
+          })
+          .catch(() => {})
+        return () => {
+          alive = false
+        }
+      }, [])
       // Manual refresh: bypasses the host-side cache (?force=1).
       const refreshBalance = async () => {
         setRefreshing(true)
@@ -491,7 +509,7 @@ window.__ModuleLoader__.load({
             h('div', { className: 'tks-balance-strip' },
               h('div', { className: 'tks-balance-hero' },
                 h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
-                h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
+                h('span', { className: 'tks-balance-hero-status' + (balance.low ? ' low' : '') }, balance.low ? '余额不足' : balance.isAvailable ? '可用' : '不可用'),
               ),
               h('div', { className: 'tks-balance-row' },
                 h('span', null, '充值余额'),
@@ -501,8 +519,10 @@ window.__ModuleLoader__.load({
                 h('span', null, '赠送余额'),
                 h('span', null, fmtMoney(balance.granted, balance.currency)),
               ),
-              h('div', { className: 'tks-balance-note' },
-                '数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存',
+              h('div', { className: 'tks-balance-note' + (balance.low ? ' low' : '') },
+                balance.low
+                  ? '⚠ 余额不足（低于 ' + fmtMoney(balance.warnThreshold, balance.currency) + '），请注意充值'
+                  : '数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存',
               ),
             ),
           )
@@ -740,7 +760,8 @@ window.__ModuleLoader__.load({
             '\n总余额 ' + fmtMoney(balance.total, balance.currency) +
             '\n充值 ' + fmtMoney(balance.toppedUp, balance.currency) +
             '\n赠送 ' + fmtMoney(balance.granted, balance.currency) +
-            (balance.isAvailable ? '' : '\n当前不可用')
+            (balance.isAvailable ? '' : '\n当前不可用') +
+            (balance.low ? '\n⚠ 余额不足（低于 ' + fmtMoney(balance.warnThreshold, balance.currency) + '）' : '')
           : null
       return h(React.Fragment, null,
         h('div', { className: 'tks-badge-group' },
@@ -764,7 +785,7 @@ window.__ModuleLoader__.load({
                 setBalanceOpen(true)
               },
             },
-              h('span', { className: 'tks-balance-dot' }),
+              h('span', { className: 'tks-balance-dot' + (balance.low ? ' low' : '') }),
               h('span', null, fmtMoney(balance.total, balance.currency)),
             )
             : null,
@@ -797,7 +818,7 @@ window.__ModuleLoader__.load({
             ? h('div', null,
               h('div', { className: 'tks-balance-hero' },
                 h('span', { className: 'tks-balance-hero-amt' }, fmtMoney(balance.total, balance.currency)),
-                h('span', { className: 'tks-balance-hero-status' }, balance.isAvailable ? '可用' : '不可用'),
+                h('span', { className: 'tks-balance-hero-status' + (balance.low ? ' low' : '') }, balance.low ? '余额不足' : balance.isAvailable ? '可用' : '不可用'),
               ),
               h('div', { className: 'tks-balance-row' },
                 h('span', null, '充值余额'),
@@ -807,12 +828,10 @@ window.__ModuleLoader__.load({
                 h('span', null, '赠送余额'),
                 h('span', null, fmtMoney(balance.granted, balance.currency)),
               ),
-              h('div', { className: 'tks-balance-note' },
-                balance.isAvailable ? '可用，可正常调用' : '当前不可用（余额不足或账户受限）',
-              ),
-              h('div', { className: 'tks-balance-note' },
-                '数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存' +
-                (balanceUpdatedAt ? ' · 更新于 ' + balanceUpdatedAt : ''),
+              h('div', { className: 'tks-balance-note' + (balance.low ? ' low' : '') },
+                balance.low
+                  ? '⚠ 余额不足（低于 ' + fmtMoney(balance.warnThreshold, balance.currency) + '），请注意充值'
+                  : '数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存' + (balanceUpdatedAt ? ' · 更新于 ' + balanceUpdatedAt : ''),
               ),
             )
             : h('div', { className: 'tks-skeleton' }, '余额加载中…'),

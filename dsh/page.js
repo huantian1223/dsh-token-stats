@@ -79,6 +79,8 @@ export function renderPage() {
   .bal-hero { display: flex; align-items: baseline; gap: 10px; }
   .bal-hero b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.4px; color: var(--text); }
   .bal-status { font-size: 12px; color: #22c55e; }
+  .bal-status-low { color: #f25a5a; }
+  .bal-note-low { color: #f25a5a; }
   .bal-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; line-height: 24px; color: var(--text-dim); }
   .bal-note { font-size: 11px; line-height: 18px; color: var(--text-dim); margin-top: 6px; }
   .refresh-btn { border: 1px solid var(--border); background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; line-height: 20px; padding: 2px 10px; border-radius: 999px; cursor: pointer; }
@@ -379,12 +381,17 @@ async function loadBalance(force) {
     const j = await r.json()
     if (!j.ok) return
     const money = (n) => (j.currency && j.currency !== 'CNY' ? j.currency + ' ' : '¥') + Number(n ?? 0).toFixed(2)
+    const statusText = j.low ? '余额不足' : (j.isAvailable ? '可用' : '不可用')
+    const statusClass = j.low ? ' bal-status-low' : ''
+    const note = j.low
+      ? '⚠ 余额不足（低于 ' + money(j.warnThreshold) + '），请注意充值'
+      : '数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存'
     $('#balance').innerHTML =
       '<div class="bal-strip">' +
-      '<div class="bal-hero"><b>' + money(j.total) + '</b><span class="bal-status">' + (j.isAvailable ? '可用' : '不可用') + '</span></div>' +
+      '<div class="bal-hero"><b>' + money(j.total) + '</b><span class="bal-status' + statusClass + '">' + statusText + '</span></div>' +
       '<div class="bal-row"><span>充值余额</span><span>' + money(j.toppedUp) + '</span></div>' +
       '<div class="bal-row"><span>赠送余额</span><span>' + money(j.granted) + '</span></div>' +
-      '<div class="bal-note">数据来自 DeepSeek 开放平台 /user/balance · 15 分钟缓存</div>' +
+      '<div class="bal-note' + (j.low ? ' bal-note-low' : '') + '">' + note + '</div>' +
       '</div>'
   } catch {
     $('#balance').innerHTML = ''

@@ -23,6 +23,7 @@ import { computeStats, computeSessionStats, computeDayBreakdown } from './stats.
 import { loadStore, persistNewRows, loadScanState, saveScanState, rewriteStore, loadStoreVersion, saveStoreVersion, STORE_VERSION, loadTitles, saveTitles } from './store.js'
 import { renderPage } from './page.js'
 import { createBalanceService } from './balance.js'
+import { loadConfig } from './config.js'
 
 export const name = 'token-stats'
 export const inject = ['webServer', 'credentials']
@@ -40,6 +41,7 @@ export function apply(ctx, config = {}) {
   const sessionsRoot = config.sessionsRoot ?? dshHomePath('sessions')
   const dataDir = config.dataDir ?? dshHomePath('token-stats')
   mkdirSync(dataDir, { recursive: true })
+  const cfg = loadConfig(config, dataDir)
 
   const { map: rows, usagePath } = loadStore(dataDir)
   let scanState = loadScanState(dataDir)
@@ -119,7 +121,7 @@ export function apply(ctx, config = {}) {
   }
 
   // Periodic reconciliation (mtime-based, cheap when nothing changed).
-  const intervalMs = Math.max(5000, Number(config.rescanIntervalMs) || 30000)
+  const intervalMs = cfg.rescanIntervalMs
   const timer = setInterval(() => {
     void scan(false)
   }, intervalMs)
@@ -139,14 +141,14 @@ export function apply(ctx, config = {}) {
     const statsHandler = async (req, res) => {
       try {
         await scanPromise
-        const stats = computeStats([...rows.values()], config)
+        const stats = computeStats([...rows.values()], cfg)
         stats.lastError = lastError ? String(lastError?.message ?? lastError) : null
         send(res, 200, JSON.stringify(stats), 'application/json; charset=utf-8')
       } catch (error) {
         send(res, 500, JSON.stringify({ error: String(error?.message ?? error) }), 'application/json; charset=utf-8')
       }
     }
-    const balanceService = createBalanceService(ctx, config)
+    const balanceService = createBalanceService(ctx, cfg)
     const balanceHandler = async (req, res) => {
       try {
         const force = (req.url ?? '').includes('force=1')
@@ -157,6 +159,15 @@ export function apply(ctx, config = {}) {
       }
     }
     routeDisposers.push(webServer.register({ kind: 'exact', path: '/token-stats/api/stats', handler: statsHandler }))
+    routeDisposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/token-stats/api/config',
+        handler: (req, res) => {
+          send(res, 200, JSON.stringify(cfg), 'application/json; charset=utf-8')
+        },
+      }),
+    )
     routeDisposers.push(webServer.register({ kind: 'exact', path: '/token-stats/api/balance', handler: balanceHandler }))
     routeDisposers.push(
       webServer.register({

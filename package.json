@@ -1,12 +1,27 @@
 {
   "name": "dsh-token-stats",
-  "version": "0.1.0",
-  "description": "Token usage statistics for DeepSeek Harness: cumulative/peak tokens, longest chat session, daily streaks and a rolling 12-month activity heatmap. Host half records real provider usage from session logs and serves a stats API; client half adds a Token Stats page to Web Settings plus a live session badge.",
+  "version": "0.2.0",
+  "description": "Token usage statistics for DeepSeek Harness: cumulative/today/peak tokens, streaks, a 12-month activity heatmap (daily/weekly/cumulative, range switch, day drill-down, CSV export), per-model/workspace breakdowns, live session badge and DeepSeek account balance. Host half records real provider usage from session logs; client half adds a Token Stats page to Web Settings.",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "plugin",
+    "token",
+    "usage",
+    "statistics",
+    "heatmap",
+    "balance"
+  ],
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/huantian1223/dsh-token-stats.git"
+  },
+  "author": "huantian1223",
+  "engines": {
+    "node": ">=22.13"
   },
   "exports": {
     ".": "./dsh/index.js",
@@ -16,7 +31,10 @@
   "files": [
     "dsh",
     "client",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
   ],
   "dsh": {
     "bundle": {

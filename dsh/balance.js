@@ -11,11 +11,12 @@ const DEFAULT_CACHE_MS = 15 * 60 * 1000
 
 /**
  * @param {object} ctx - cordis context (credentials seam via ctx.get).
- * @param {object} [config] - { balanceCacheMs }.
+ * @param {object} [config] - { balanceCacheMs, balanceWarnThreshold }.
  * @returns {{ get: (force?: boolean) => Promise<object> }}
  */
 export function createBalanceService(ctx, config = {}) {
   const cacheMs = Math.max(1000, Number(config.balanceCacheMs) || DEFAULT_CACHE_MS)
+  const warnThreshold = Math.max(0, Number(config.balanceWarnThreshold) || 0)
   let cache = null // { at, data }
 
   const resolveApiKey = async () => {
@@ -45,13 +46,16 @@ export function createBalanceService(ctx, config = {}) {
     }
     const data = await res.json()
     const info = Array.isArray(data.balance_infos) ? data.balance_infos[0] : null
+    const total = Number(info?.total_balance ?? 0)
     return {
       ok: true,
       currency: info?.currency ?? 'CNY',
-      total: Number(info?.total_balance ?? 0),
+      total,
       granted: Number(info?.granted_balance ?? 0),
       toppedUp: Number(info?.topped_up_balance ?? 0),
       isAvailable: data.is_available !== false,
+      low: warnThreshold > 0 && total < warnThreshold,
+      warnThreshold,
     }
   }
 

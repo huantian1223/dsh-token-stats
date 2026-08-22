@@ -9,7 +9,7 @@ describe('config.loadConfig', () => {
     const cfg = loadConfig({}, mkdtempSync(join(tmpdir(), 'tks-cfg-')))
     expect(cfg.gapMs).toBe(30 * 60 * 1000)
     expect(cfg.rescanIntervalMs).toBe(30 * 1000)
-    expect(cfg.balanceCacheMs).toBe(15 * 60 * 1000)
+    expect(cfg.balanceCacheMs).toBe(15 * 1000)
     expect(cfg.balanceWarnThreshold).toBe(5)
     expect(cfg.defaultRange).toBe('3m')
   })

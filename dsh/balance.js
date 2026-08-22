@@ -7,7 +7,7 @@
 // figure changes very slowly.
 
 const BALANCE_URL = 'https://api.deepseek.com/user/balance'
-const DEFAULT_CACHE_MS = 15 * 60 * 1000
+const DEFAULT_CACHE_MS = 15 * 1000
 
 /**
  * @param {object} ctx - cordis context (credentials seam via ctx.get).

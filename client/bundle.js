@@ -270,6 +270,13 @@ window.__ModuleLoader__.load({
             setStats(j)
             setUpdatedAt(j.updatedAt)
             setErr(j.lastError ? '最近一次扫描出错：' + j.lastError : null)
+            // Usage-driven balance refresh: when the cumulative total moves,
+            // pull a fresh balance (throttled).
+            const prev = lastTotalRef.current
+            if (prev !== null && prev !== j.cumulative.total) {
+              void refreshBalance({ throttled: true })
+            }
+            lastTotalRef.current = j.cumulative.total
           } catch (e) {
             if (alive) setErr(String(e && e.message ? e.message : e))
           }
@@ -332,6 +339,8 @@ window.__ModuleLoader__.load({
       // DeepSeek account balance: slow-moving, polled on a long interval.
       // Must stay above the early returns (hooks order stability).
       const balanceAliveRef = React.useRef(true)
+      const lastTotalRef = React.useRef(null)
+      const balanceForceAtRef = React.useRef(0)
       React.useEffect(() => {
         balanceAliveRef.current = true
         const load = async () => {
@@ -345,7 +354,7 @@ window.__ModuleLoader__.load({
           }
         }
         load()
-        const t = setInterval(load, 15 * 60 * 1000)
+        const t = setInterval(load, 60 * 1000)
         return () => {
           balanceAliveRef.current = false
           clearInterval(t)
@@ -366,8 +375,11 @@ window.__ModuleLoader__.load({
           alive = false
         }
       }, [])
-      // Manual refresh: bypasses the host-side cache (?force=1).
-      const refreshBalance = async () => {
+      // Manual refresh: bypasses the host-side cache (?force=1). `throttled`
+      // skips a call within 5s of the last (usage-driven refreshes).
+      const refreshBalance = async (opts = {}) => {
+        if (opts.throttled && Date.now() - balanceForceAtRef.current < 5000) return
+        balanceForceAtRef.current = Date.now()
         setRefreshing(true)
         try {
           const r = await fetch('/token-stats/api/balance?force=1', { cache: 'no-store' })
@@ -675,7 +687,16 @@ window.__ModuleLoader__.load({
             const r = await fetch('/token-stats/api/session/' + encodeURIComponent(String(sessionId)), { cache: 'no-store' })
             if (!r.ok) return
             const j = await r.json()
-            if (alive && j && j.tokens) setInfo(j)
+            if (!alive || !j || !j.tokens) return
+            setInfo(j)
+            // Usage-driven balance refresh: balance changes as tokens burn, so
+            // whenever this session's usage advances, pull a fresh balance.
+            // Throttled so concurrent workers do not hammer the endpoint.
+            const prev = lastUsageRef.current
+            if (prev !== null && (prev.total !== j.tokens.total || prev.steps !== j.steps)) {
+              void refreshBalance({ throttled: true })
+            }
+            lastUsageRef.current = { total: j.tokens.total, steps: j.steps }
           } catch {
             // transient; next poll retries
           }
@@ -687,8 +708,11 @@ window.__ModuleLoader__.load({
           clearInterval(t)
         }
       }, [sessionId])
-      // DeepSeek account balance: slow-moving, polled on a long interval.
+      // DeepSeek account balance: baseline poll on a short interval; the
+      // usage-driven trigger keeps it near-realtime during active chatting.
       const badgeAliveRef = React.useRef(true)
+      const lastUsageRef = React.useRef(null)
+      const balanceForceAtRef = React.useRef(0)
       const applyBalance = (j) => {
         setBalance(j)
         setBalanceUpdatedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }))
@@ -706,15 +730,17 @@ window.__ModuleLoader__.load({
           }
         }
         load()
-        const t = setInterval(load, 15 * 60 * 1000)
+        const t = setInterval(load, 60 * 1000)
         return () => {
           badgeAliveRef.current = false
           clearInterval(t)
         }
       }, [])
-      // Clicking the balance pill refreshes it (host ?force=1) and opens the
-      // dedicated balance dialog.
-      const refreshBalance = async () => {
+      // Refresh the balance (host ?force=1). `throttled` skips a call within
+      // 5s of the last one (usage-driven refreshes across concurrent workers).
+      const refreshBalance = async (opts = {}) => {
+        if (opts.throttled && Date.now() - balanceForceAtRef.current < 5000) return
+        balanceForceAtRef.current = Date.now()
         setRefreshing(true)
         try {
           const r = await fetch('/token-stats/api/balance?force=1', { cache: 'no-store' })

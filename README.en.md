@@ -57,7 +57,7 @@ The balance appears in three places, each with its own purpose:
 2. **Dedicated balance dialog**: opened by clicking the pill — a large amount with availability status, topped-up / granted breakdown, a **refresh** button, and the data source / last-updated time
 3. **Balance panel on the full stats page**: a compact full-width strip below the heatmap, with its own refresh button
 
-Refresh behavior: clicking refresh forces a live query to the DeepSeek open platform (`/user/balance`) via `?force=1`, with a "刷新中…" state on the button; a 15-minute poll is the baseline; on failure the last cached value is kept (no flicker). **The API key is resolved through the DSH credentials service and stays in the host process — it is never sent to the browser.**
+Refresh behavior: clicking refresh forces a live query to the DeepSeek open platform (`/user/balance`) via `?force=1`, with a "刷新中…" state on the button; **the balance is near-realtime** — whenever new tokens are burned (session usage advances or the cumulative total moves) it auto-refreshes (5s throttle), with a 60-second poll as the idle baseline; on failure the last cached value is kept (no flicker). **The API key is resolved through the DSH credentials service and stays in the host process — it is never sent to the browser.**
 
 ### Standalone stats page
 
@@ -79,7 +79,7 @@ Tunables are overridden through `$DSH_HOME/token-stats/config.json` (defaults ap
 {
   "gapMs": 1800000,
   "rescanIntervalMs": 30000,
-  "balanceCacheMs": 900000,
+  "balanceCacheMs": 15000,
   "windowMonths": 12,
   "defaultRange": "3m",
   "balanceWarnThreshold": 5
@@ -90,7 +90,7 @@ Tunables are overridden through `$DSH_HOME/token-stats/config.json` (defaults ap
 |---|---|---|
 | `gapMs` | 1800000 (30 min) | Inactivity gap that splits a session into separate chats |
 | `rescanIntervalMs` | 30000 (30 s) | Session-log reconciliation interval |
-| `balanceCacheMs` | 900000 (15 min) | Balance query cache TTL |
+| `balanceCacheMs` | 15000 (15 s) | Balance query cache TTL (for the near-realtime, usage-driven refresh) |
 | `windowMonths` | 12 | Full heatmap window in months |
 | `defaultRange` | `3m` | Default heatmap range (`12m`/`3m`/`30d`) |
 | `balanceWarnThreshold` | 5 (¥) | Red balance warning below this amount (0 disables) |

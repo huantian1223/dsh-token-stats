@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { computeStats, computeDayBreakdown, computeSessionStats, dayKey } from '../dsh/stats.js'
 
-/** Build a usage row whose date is `offsetDays` days before today (noon). */
+/** Build a usage row whose date is `offsetDays` days before today, anchored to
+ * local NOON so the day-key math is stable regardless of when the suite runs. */
+const NOON_TODAY = (() => {
+  const d = new Date()
+  d.setHours(12, 0, 0, 0)
+  return d.getTime()
+})()
 const day = (offsetDays, session, input, output, cacheRead = 0, extra = {}) => ({
   key: `${session}|1|1`,
   session,
   workspace: 'w',
-  ts: Date.now() - offsetDays * 86400000 + 12 * 3600000,
+  ts: NOON_TODAY - offsetDays * 86400000,
   turn: 1,
   step: 1,
   input,

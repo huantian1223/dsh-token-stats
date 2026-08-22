@@ -150,6 +150,8 @@ const $ = (s) => document.querySelector(s)
 let STATE = null
 let VIEW = 'daily'
 let RANGE = '3m'
+let LAST_TOTAL = null
+let LAST_BALANCE_FORCE = 0
 
 const fmt = (n) => {
   if (!Number.isFinite(n)) return '—'
@@ -322,6 +324,10 @@ async function load() {
     STATE = await r.json()
     if (STATE.lastError) console.warn('[token-stats] last scan error:', STATE.lastError)
     render()
+    // Usage-driven balance refresh: when the cumulative total moves, pull a
+    // fresh balance (throttled inside loadBalance).
+    if (LAST_TOTAL !== null && LAST_TOTAL !== STATE.cumulative.total) loadBalance(true)
+    LAST_TOTAL = STATE.cumulative.total
   } catch (e) {
     $('#live').textContent = '加载失败'
     $('#cards').innerHTML = '<div class="err" style="grid-column:1/-1">无法读取统计：' + e.message + '</div>'
@@ -368,8 +374,11 @@ if (hmBox && tipEl) {
 load()
 setInterval(load, 15000)
 
-// DeepSeek account balance (server-side key, 15-minute cache).
+// DeepSeek account balance (server-side key, 15s cache via ?force=1).
 async function loadBalance(force) {
+  // Throttle usage-driven force refreshes (but never a manual click).
+  if (force && Date.now() - LAST_BALANCE_FORCE < 5000) return
+  if (force) LAST_BALANCE_FORCE = Date.now()
   const btn = $('#balanceRefresh')
   if (force && btn) {
     btn.disabled = true

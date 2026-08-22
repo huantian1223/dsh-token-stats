@@ -10,8 +10,9 @@ export const DEFAULT_CONFIG = {
   gapMs: 30 * 60 * 1000,
   /** Periodic reconciliation interval for the session-log scan (ms). */
   rescanIntervalMs: 30 * 1000,
-  /** Balance query cache TTL (ms). */
-  balanceCacheMs: 15 * 60 * 1000,
+  /** Balance query cache TTL (ms). Short, because the client refreshes on
+   * usage-driven triggers and ?force=1 bypasses it entirely. */
+  balanceCacheMs: 15 * 1000,
   /** Rolling heatmap window in months (the full series served to the client). */
   windowMonths: 12,
   /** Client-side default heatmap range: '12m' | '3m' | '30d'. */

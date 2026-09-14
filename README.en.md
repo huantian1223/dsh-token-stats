@@ -44,9 +44,8 @@ Per-model and per-workspace consumption rankings with full-precision numbers, so
 
 ### Live session badge
 
-Three controls sit in the conversation header, always visible:
+Two pills sit in the conversation header, always visible:
 
-- **用量**: one-click jump to the DeepSeek open-platform usage page (`platform.deepseek.com/usage`, opens in a new tab)
 - **本会话 X**: the current session's token usage, polled every 10 seconds; click for the session detail dialog (total / input / output / cache / reasoning, a per-model breakdown, and the **session title**), with a one-click shortcut to the full statistics
 - **¥ balance**: the DeepSeek account balance, refreshed near-realtime on token burn; clicking **force-refreshes the balance** and opens the dedicated balance dialog
 
@@ -55,7 +54,7 @@ Three controls sit in the conversation header, always visible:
 The balance appears in three places, each with its own purpose:
 
 1. **Header balance pill**: next to the session badge, visible at all times
-2. **Dedicated balance dialog**: opened by clicking the pill — a large amount with availability status, topped-up / granted breakdown, a **refresh** button, and the data source / last-updated time
+2. **Dedicated balance dialog**: opened by clicking the pill — a large amount with availability status, topped-up / granted breakdown, and the data source / last-updated time; its footer carries two actions: **查看用量** (opens the DeepSeek open-platform usage page `platform.deepseek.com/usage` in a new tab) and **刷新余额**
 3. **Balance panel on the full stats page**: a compact full-width strip below the heatmap, with its own refresh button
 
 Refresh behavior: clicking refresh forces a live query to the DeepSeek open platform (`/user/balance`) via `?force=1`, with a "刷新中…" state on the button; **the balance is near-realtime** — whenever new tokens are burned (session usage advances or the cumulative total moves) it auto-refreshes (5s throttle), with a 60-second poll as the idle baseline; on failure the last cached value is kept (no flicker). **The API key is resolved through the DSH credentials service and stays in the host process — it is never sent to the browser.**

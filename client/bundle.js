@@ -69,6 +69,9 @@ window.__ModuleLoader__.load({
 .tks-badge .tks-badge-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-business-primary,#4cc2ff);flex:none}
 .tks-badge b{color:var(--dsw-alias-label-primary,#e6e9ee);font-weight:600}
 .tks-badge-group{display:inline-flex;align-items:center;gap:6px}
+.tks-link-btn{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:32px;color:var(--dsw-alias-label-secondary,#cfd3d6);font:var(--dsw-font-xs-13,13px);background:0 0;border:1px solid var(--dsw-alias-border-l2,#262e38);border-radius:18px;padding:0 12px;cursor:pointer;white-space:nowrap}
+.tks-link-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary,#f9fafb)}
+.tks-link-btn svg{flex:none}
 .tks-balance{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:32px;color:var(--dsw-alias-label-primary,#e6e9ee);font:var(--dsw-font-xs-13,13px);font-variant-numeric:tabular-nums;background:0 0;border:1px solid var(--dsw-alias-border-l2,#262e38);border-radius:18px;padding:0 12px;cursor:pointer;white-space:nowrap}
 .tks-balance:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .tks-balance-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-success-primary,#22c55e);flex:none}
@@ -791,6 +794,29 @@ window.__ModuleLoader__.load({
           : null
       return h(React.Fragment, null,
         h('div', { className: 'tks-badge-group' },
+          h('button', {
+            type: 'button',
+            className: 'tks-link-btn',
+            title: '在 DeepSeek 开放平台查看用量与账单明细',
+            onClick: () => window.open('https://platform.deepseek.com/usage', '_blank', 'noopener'),
+          },
+            h('span', null, '用量'),
+            h('svg', {
+              width: 13,
+              height: 13,
+              viewBox: '0 0 16 16',
+              fill: 'none',
+              stroke: 'currentColor',
+              strokeWidth: 1.5,
+              strokeLinecap: 'round',
+              strokeLinejoin: 'round',
+              'aria-hidden': 'true',
+            },
+              h('path', { d: 'M6.5 3.5H4A1.5 1.5 0 0 0 2.5 5v7A1.5 1.5 0 0 0 4 13.5h7A1.5 1.5 0 0 0 12.5 12V9.5' }),
+              h('path', { d: 'M9.5 2.5h4v4' }),
+              h('path', { d: 'M13.5 2.5 7.5 8.5' }),
+            ),
+          ),
           h('button', {
             type: 'button',
             className: 'tks-badge',

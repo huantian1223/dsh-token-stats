@@ -44,10 +44,11 @@ Per-model and per-workspace consumption rankings with full-precision numbers, so
 
 ### Live session badge
 
-Two pills sit in the conversation header, always visible:
+Three controls sit in the conversation header, always visible:
 
+- **用量**: one-click jump to the DeepSeek open-platform usage page (`platform.deepseek.com/usage`, opens in a new tab)
 - **本会话 X**: the current session's token usage, polled every 10 seconds; click for the session detail dialog (total / input / output / cache / reasoning, a per-model breakdown, and the **session title**), with a one-click shortcut to the full statistics
-- **¥ balance**: the DeepSeek account balance, polled every 15 minutes; clicking **force-refreshes the balance** and opens the dedicated balance dialog
+- **¥ balance**: the DeepSeek account balance, refreshed near-realtime on token burn; clicking **force-refreshes the balance** and opens the dedicated balance dialog
 
 ### DeepSeek account balance
 

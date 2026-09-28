@@ -53,7 +53,7 @@ Two pills sit in the conversation header, always visible:
 
 The balance appears in three places, each with its own purpose:
 
-1. **Header balance pill**: next to the session badge, visible at all times
+1. **Header balance pill**: next to the session badge, visible at all times; it shows the **topped-up balance** (matching the official client's figure), with the full topped-up / granted / total breakdown in its tooltip
 2. **Dedicated balance dialog**: opened by clicking the pill — a large amount with availability status, topped-up / granted breakdown, and the data source / last-updated time; its footer carries two actions: **查看用量** (opens the DeepSeek open-platform usage page `platform.deepseek.com/usage` in a new tab) and **刷新余额**
 3. **Balance panel on the full stats page**: a compact full-width strip below the heatmap, with its own refresh button
 

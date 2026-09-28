@@ -783,12 +783,16 @@ window.__ModuleLoader__.load({
         setOpen(false)
         setFullOpen(true)
       }
+      // The pill shows the official "topped-up balance" figure (same number the
+      // provider's own clients show); the full breakdown stays in the tooltip
+      // and the balance dialog.
+      const pillAmount = balance ? fmtMoney(balance.toppedUp, balance.currency) : ''
       const balanceTip =
         balance && balance.ok
           ? 'DeepSeek 余额' +
+            '\n充值余额 ' + fmtMoney(balance.toppedUp, balance.currency) +
+            '\n赠送余额 ' + fmtMoney(balance.granted, balance.currency) +
             '\n总余额 ' + fmtMoney(balance.total, balance.currency) +
-            '\n充值 ' + fmtMoney(balance.toppedUp, balance.currency) +
-            '\n赠送 ' + fmtMoney(balance.granted, balance.currency) +
             (balance.isAvailable ? '' : '\n当前不可用') +
             (balance.low ? '\n⚠ 余额不足（低于 ' + fmtMoney(balance.warnThreshold, balance.currency) + '）' : '')
           : null
@@ -815,7 +819,7 @@ window.__ModuleLoader__.load({
               },
             },
               h('span', { className: 'tks-balance-dot' + (balance.low ? ' low' : '') }),
-              h('span', null, fmtMoney(balance.total, balance.currency)),
+              h('span', null, pillAmount),
             )
             : null,
         ),
